@@ -20,6 +20,17 @@ def recorder():
                 200,
                 json={"access_token": "a" * 40, "refresh_token": "r" * 20, "expires_in": 3600},
             )
+        if "/api/me/ad-rewards/claim" in str(request.url):
+            return httpx.Response(
+                200,
+                json={
+                    "earnId": "00000000-0000-0000-0000-000000000000",
+                    "rewardPoints": 5,
+                    "pointBalanceAfter": 8,
+                    "dailyViewCount": 2,
+                    "dailyViewLimit": 5,
+                },
+            )
         return httpx.Response(200, json={"ok": True})
 
     return seen, httpx.MockTransport(handler)
@@ -70,6 +81,35 @@ def test_observed_request_shapes(recorder):
     assert any(method == "POST" and "/api/trades/sell" in url and body["shares"] == 0.5 for method, url, body, _ in seen)
     assert any(method == "POST" and url.endswith("/api/markets/mid/comments") and body == {"body": "reply", "parentCommentId": "cid"} for method, url, body, _ in seen)
     assert any("/api/markets/charts?ids=a%2Cb&tf=max" in url for _, url, _, _ in seen)
+
+
+def test_ad_reward_claim_matches_observed_success_shape():
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "earnId": "00000000-0000-0000-0000-000000000000",
+                "rewardPoints": 5,
+                "pointBalanceAfter": 8,
+                "dailyViewCount": 2,
+                "dailyViewLimit": 5,
+            },
+        )
+
+    with isolated_client(access_token="token", transport=httpx.MockTransport(handler)) as client:
+        result = client.claim_ad_reward()
+
+    assert seen[0].method == "POST"
+    assert seen[0].url.path == "/api/me/ad-rewards/claim"
+    assert seen[0].url.params["source"] == "watch_ad"
+    assert seen[0].content == b""
+    assert result["rewardPoints"] == 5
+    assert result["pointBalanceAfter"] == 8
+    assert result["dailyViewCount"] == 2
+    assert result["dailyViewLimit"] == 5
 
 
 def test_apple_login_shape(recorder):
