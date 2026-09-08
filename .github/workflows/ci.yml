@@ -28,4 +28,6 @@ jobs:
       - if: matrix.python-version == '3.14'
         run: mypy src/poyto
       - if: matrix.python-version == '3.14'
+        run: python scripts/code_stats.py
+      - if: matrix.python-version == '3.14'
         run: python -m build
