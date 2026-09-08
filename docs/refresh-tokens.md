@@ -1,78 +1,79 @@
 # Refresh tokens
 
-Poyto uses POYP's Supabase Auth session model. This page separates what was directly observed in the supplied POYP captures from behavior documented by Supabase.
+Poyto uses POYP's Supabase Auth session model. This page deliberately separates **HAR-confirmed POYP behavior** from **documented Supabase behavior**.
 
-## What was observed in POYP traffic
+## Confirmed in supplied POYP traffic
 
-The supplied captures showed POYP using `auth.poyp.app` as its Supabase Auth/custom auth domain.
+The captures show POYP using `auth.poyp.app` for Supabase Auth.
 
-The Apple sign-in exchange returned a session containing at least:
+A successful Apple identity-token exchange returned:
 
 - `access_token`
 - `refresh_token`
-- expiry-related fields such as `expires_in`
+- `token_type`
+- `expires_in`
+- `expires_at`
+- `user`
 
-Authenticated POYP API requests then sent the access token as a bearer token to `api.poyp.app`.
+The returned session access token was a JWT. In the latest capture its JWT `exp` exactly matched response `expires_at`, and `expires_in` was 3600 seconds. Authenticated POYP API requests then used a bearer JWT.
 
-A refresh-token exchange request itself was **not present in the supplied captures**. Poyto therefore implements refresh using the standard Supabase/GoTrue refresh-token flow rather than claiming that the exact refresh request was directly captured from POYP.
+The returned refresh token was an **opaque string, not a JWT**. Its appearance and length must not be used as a permanent protocol contract: clients should store it exactly as returned and should not attempt to decode it.
 
-## Supabase behavior
+The Apple sign-in request itself also contained a field named `access_token`. That is the Apple/provider credential, not the POYP/Supabase session access token. Poyto names it `apple_access_token` to keep the two concepts separate.
 
-Official Supabase documentation describes a session as an access-token JWT plus a refresh token.
+See `token-capture-findings.md` for the sanitized capture analysis.
 
-Access tokens are intentionally short-lived. Supabase says they are commonly valid for roughly 5 minutes to 1 hour, with 1 hour being the normal default/recommendation for many projects.
+## Not yet observed in POYP traffic
 
-Refresh tokens are different: they are designed to keep the session alive without forcing the user to sign in again. Supabase describes them as not expiring by time on their own, but the surrounding session can still become invalid because of logout, configured inactivity/lifetime limits, security-sensitive account changes, or session policies.
+None of the supplied HARs contains a live request to:
 
-References:
+```text
+POST /auth/v1/token?grant_type=refresh_token
+```
+
+So Poyto must not claim that the exact refresh exchange has been independently captured from POYP. The implementation below is based on the standard Supabase/GoTrue Auth API used by the observed auth service.
+
+The captures also do not reveal POYP's project-specific refresh-token reuse interval, time-boxed session lifetime, inactivity timeout, or single-session policy.
+
+## Documented Supabase behavior
+
+Supabase documents a session as an access-token JWT plus a unique refresh-token string. Access tokens are short-lived; one hour is the common/default JWT lifetime. Refresh tokens are used to keep a session alive without requiring another interactive sign-in. A session can still terminate because of logout, configured session limits, security-sensitive account changes, or other auth policy.
+
+Supabase enables refresh-token rotation by default. A refresh token is normally exchanged for a new access-token + refresh-token pair, so applications should always persist the newest returned pair. Supabase also documents limited reuse/recovery exceptions for legitimate races and network failures; its documented default reuse interval is 10 seconds, but that value is configurable and the POYP capture does not prove which value POYP uses.
+
+Official references:
 
 - https://supabase.com/docs/guides/auth/sessions
 - https://supabase.com/docs/reference/python/auth-api
-
-## Rotation: always store the newest token
-
-Supabase enables refresh-token rotation by default. Under rotation, a refresh token is normally exchanged once for a new access-token + refresh-token pair.
-
-That means this is the important rule for Poyto:
-
-> After every successful refresh, replace both the stored access token and the stored refresh token with the values returned by the auth server.
-
-Do not keep using an older refresh token indefinitely.
-
-Supabase provides two important protections for real-world concurrency/network failures:
-
-1. A recently used refresh token can be accepted again during a short reuse interval. The documented default is 10 seconds.
-2. In some parent-token recovery cases, Supabase can return the currently active token instead of terminating a legitimate session.
-
-Outside those exceptions, suspicious reuse of an old refresh token can cause the session's refresh-token chain to be revoked.
-
-References:
-
-- https://supabase.com/docs/guides/auth/sessions#what-is-refresh-token-reuse-detection-and-what-does-it-protect-from
 - https://supabase.com/docs/guides/local-development/cli/config
+- https://supabase.com/docs/reference/self-hosting-auth
 
-## Poyto refresh request
+## Poyto refresh implementation
 
-Poyto currently follows the standard Supabase token endpoint pattern:
+Poyto follows the standard GoTrue endpoint shape:
 
 ```text
 POST https://auth.poyp.app/auth/v1/token?grant_type=refresh_token
+Content-Type: application/json
+
+{"refresh_token": "<opaque refresh token>"}
 ```
 
-with a body containing the current refresh token.
+The returned session replaces the in-memory session and, when persistence is enabled, the newly returned access and refresh tokens replace the stored pair.
 
-The returned session replaces the in-memory session, and Poyto writes the new token pair back to its session store.
-
-This endpoint shape is based on the Supabase Auth API behavior. Again, the supplied POYP HARs showed the auth service and refresh-token issuance, but did not contain a live POYP refresh exchange to independently confirm that exact request.
+This endpoint shape is supported by Supabase's Auth API documentation. It remains marked as **Supabase-derived rather than POYP-HAR-confirmed** until a POYP capture contains an actual refresh request.
 
 ## Automatic behavior in Poyto
 
-When `PoytoClient()` loads a stored session:
+When `PoytoClient()` loads credentials:
 
-- if `expires_at` is known and the access token is expired or within 60 seconds of expiry, it refreshes immediately;
-- if an authenticated POYP API request returns HTTP 401 and a refresh token exists, it refreshes once and retries the original request once;
-- after a successful refresh, the newly returned access and refresh tokens are persisted;
-- Poyto does not loop endlessly on repeated 401 responses.
+- JSON session metadata uses `expires_at` directly when present;
+- for a plain access-token JWT, Poyto now decodes the JWT payload locally and derives `expires_at` from `exp` when possible;
+- JWT decoding is only metadata inspection and does **not** mean the signature was verified locally;
+- if expiry is known and the access token is expired or within 60 seconds of expiry, Poyto refreshes when a refresh token is available;
+- if an authenticated POYP API request returns HTTP 401 and a refresh token exists, Poyto refreshes once and retries once;
+- after a successful refresh, the newest token pair is persisted;
+- Poyto never attempts to decode a refresh token as a JWT.
 
 Example:
 
@@ -80,8 +81,6 @@ Example:
 from poyto import PoytoClient
 
 with PoytoClient() as client:
-    # Saved session is loaded automatically.
-    # Refresh happens automatically when needed.
     print(client.profile())
 ```
 
@@ -93,9 +92,7 @@ session = client.refresh()
 
 ## Token storage and concurrency
 
-Because rotated refresh tokens are effectively part of a chain, two processes refreshing the same session at the same time can race each other. Supabase's reuse interval helps, but it is not a substitute for avoiding unnecessary concurrent refreshes.
-
-For simple scripts, use one Poyto session file per account/process when possible. If multiple long-running processes must share one account, coordinate refresh operations or give each process its own independently authenticated session.
+With rotation, two processes refreshing the same session can race. Supabase has reuse/recovery behavior for legitimate races, but applications should not rely on it as a locking mechanism. Prefer one active session store per independently authenticated client/process when possible.
 
 Poyto's default session file is outside the repository:
 
@@ -105,24 +102,10 @@ Other:   $XDG_STATE_HOME/poyto/session.json
          or ~/.local/state/poyto/session.json
 ```
 
-The path can be overridden with `POYTO_SESSION_FILE`.
+Override it with `POYTO_SESSION_FILE` when necessary.
 
-## Security notes
+## Security
 
-A refresh token is more sensitive than a short-lived access token because it can be exchanged for future access tokens while the session remains valid.
+Both token types are credentials. A refresh token is particularly sensitive because it can mint future access tokens while its session remains valid.
 
-Do not:
-
-- commit it to Git;
-- paste it into issues, logs, screenshots, or public chat;
-- embed it in distributed source code;
-- reuse an old refresh token after a successful rotation unless you are deliberately handling a recovery case.
-
-If a refresh token may have leaked, sign out/revoke the affected session and authenticate again.
-
-## Official references
-
-- Supabase sessions: https://supabase.com/docs/guides/auth/sessions
-- Supabase Python Auth overview: https://supabase.com/docs/reference/python/auth-api
-- Supabase session configuration: https://supabase.com/docs/guides/local-development/cli/config
-- Supabase OAuth refresh response/rotation guidance: https://supabase.com/docs/guides/auth/oauth-server/oauth-flows
+Never commit real tokens or HAR captures containing them. Do not print them in CI logs, issues, screenshots, examples, or documentation. If credentials may have leaked, revoke/sign out the affected session and authenticate again.
