@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import os
 import time
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 from .client import PoytoClient as BasePoytoClient
+from .exceptions import APIError
 from .models import AuthSession
 from .session_store import SessionStore
 
@@ -32,8 +34,22 @@ class PoytoClient(BasePoytoClient):
         env_refresh = os.getenv("POYP_REFRESH_TOKEN")
         stored = self.session_store.load() if auto_load_session else None
 
-        effective_access = access_token or env_access or (stored.access_token if stored else None)
-        effective_refresh = refresh_token or env_refresh or (stored.refresh_token if stored else None)
+        if access_token is not None:
+            effective_access = access_token
+            effective_refresh = refresh_token
+            loaded_stored_session = False
+        elif env_access is not None:
+            effective_access = env_access
+            effective_refresh = env_refresh
+            loaded_stored_session = False
+        elif stored is not None:
+            effective_access = stored.access_token
+            effective_refresh = stored.refresh_token
+            loaded_stored_session = True
+        else:
+            effective_access = None
+            effective_refresh = None
+            loaded_stored_session = False
 
         super().__init__(
             access_token=effective_access,
@@ -41,11 +57,10 @@ class PoytoClient(BasePoytoClient):
             **kwargs,
         )
 
-        if stored and effective_access == stored.access_token and self.session:
+        if loaded_stored_session and stored and self.session:
             self.session.expires_in = stored.expires_in
             self.session.expires_at = stored.expires_at
             self.session.token_type = stored.token_type
-            self.session.user = stored.user
 
         self._refresh_if_needed()
 
@@ -87,6 +102,45 @@ class PoytoClient(BasePoytoClient):
         if self.save_session:
             self.session_store.save(session)
         return session
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        json: Any = None,
+        auth: bool = True,
+        headers: Mapping[str, str] | None = None,
+    ) -> Any:
+        try:
+            return super().request(
+                method,
+                path,
+                params=params,
+                json=json,
+                auth=auth,
+                headers=headers,
+            )
+        except APIError as exc:
+            can_retry = (
+                auth
+                and self.auto_refresh
+                and exc.status_code == 401
+                and self.session is not None
+                and self.session.refresh_token is not None
+            )
+            if not can_retry:
+                raise
+            self.refresh()
+            return super().request(
+                method,
+                path,
+                params=params,
+                json=json,
+                auth=auth,
+                headers=headers,
+            )
 
     def set_access_token(self, access_token: str, refresh_token: str | None = None) -> None:
         super().set_access_token(access_token, refresh_token)
