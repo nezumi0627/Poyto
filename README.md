@@ -1,53 +1,34 @@
 # Poyto
 
-Unofficial Python client and CLI for **POYP**, reconstructed from traffic captured from the user's own POYP session.
+Unofficial typed Python client and CLI for **POYP**, reconstructed from traffic captured from an authorized POYP session.
 
 > [!IMPORTANT]
-> This project is **not affiliated with or endorsed by POYP**. The API is undocumented and can change without notice. Use it only with accounts and credentials you are authorized to access.
+> Poyto is not affiliated with or endorsed by POYP. The API is undocumented and may change without notice. Use it only with accounts and credentials you are authorized to access.
 
-## Highlights
+## What changed in 0.2
 
-- `PoytoClient(token=...)` with literal tokens or plaintext/JSON/.env token files
-- One-time login with automatic local session loading
-- Automatic refresh near expiry and one-time refresh/retry on authenticated HTTP 401
-- Apple/Supabase session exchange and refresh-token rotation handling
-- Profile, balances, portfolio, missions and notifications
-- Market listing, detail, charts, activity and positions
-- Buy and sell requests observed in real app traffic
-- Comments, replies, edits, deletes and likes
-- Follow/unfollow and public user data
-- Referral APIs, rankings, global chat and walking challenge status
-- Generic request escape hatch for newly observed endpoints
-- Typed package layout, pytest tests, Ruff, mypy and GitHub Actions
-- No HAR files, private tokens or device identifiers are committed
+- Pythonic, responsibility-based package layout
+- `PoytoClient(token=...)` accepts literal tokens and plaintext/JSON/dotenv token files
+- First-class environment-variable configuration
+- Automatic saved-session loading and refresh-token rotation handling
+- One-time authenticated 401 refresh/retry
+- CLI parser and command execution split from library code
+- Resource modules split into account, markets, trades, social, discovery, and events
+- Corrected observed BTC price route to `/api/prices/BTC`
+- CI on Python 3.10–3.14 with pytest, Ruff, mypy, and package build
 
 ## Install
-
-For development:
 
 ```bash
 git clone https://github.com/nezumi0627/Poyto.git
 cd Poyto
 python -m venv .venv
-```
-
-Windows PowerShell:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
-```
-
-macOS/Linux:
-
-```bash
-source .venv/bin/activate
 pip install -e '.[dev]'
 ```
 
 ## Quick start
 
-Use a token directly:
+Literal token:
 
 ```python
 from poyto import PoytoClient
@@ -56,7 +37,7 @@ with PoytoClient(token="YOUR_ACCESS_TOKEN") as client:
     print(client.profile())
 ```
 
-Or load a file directly from the library:
+Token file:
 
 ```python
 from pathlib import Path
@@ -66,36 +47,46 @@ with PoytoClient(token=Path("token.txt")) as client:
     print(client.balances())
 ```
 
-`token.txt` may contain just an access token:
-
-```text
-ACCESS_TOKEN
-```
-
-or access + refresh token on separate lines:
+Supported token-file formats:
 
 ```text
 ACCESS_TOKEN
 REFRESH_TOKEN
 ```
 
-JSON and `.env`-style files are supported too. You can also use `token_file="token.txt"`, `token="@token.txt"`, or `token="file:token.txt"`.
-
-To avoid supplying a token on every run, persist it once:
-
-```powershell
-poyto login
+```dotenv
+POYTO_TOKEN=...
+POYTO_REFRESH_TOKEN=...
 ```
 
-Then:
+```json
+{
+  "access_token": "...",
+  "refresh_token": "...",
+  "expires_at": 1790000000
+}
+```
+
+You can also use `token_file="token.txt"`, `token="@token.txt"`, or `token="file:token.txt"`.
+
+## Environment variables
+
+The simplest setup is:
 
 ```powershell
+$env:POYTO_TOKEN = "..."
+$env:POYTO_REFRESH_TOKEN = "..."
 poyto profile
-poyto balances
-poyto markets --limit 20
 ```
 
-Python then needs no token argument either:
+or:
+
+```powershell
+$env:POYTO_TOKEN_FILE = "$HOME\\poyto-token.env"
+poyto balances
+```
+
+`PoytoClient()` reads the same environment automatically:
 
 ```python
 from poyto import PoytoClient
@@ -104,38 +95,23 @@ with PoytoClient() as client:
     print(client.profile())
 ```
 
-## Authentication
+Canonical variables include `POYTO_TOKEN`, `POYTO_ACCESS_TOKEN`, `POYTO_REFRESH_TOKEN`, `POYTO_TOKEN_FILE`, `POYTO_SESSION_FILE`, `POYTO_AUTO_REFRESH`, `POYTO_API_BASE`, `POYTO_AUTH_BASE`, `POYTO_TIMEOUT`, and device metadata variables. Historical `POYP_*` credential/device aliases remain supported. See [`docs/configuration.md`](docs/configuration.md).
 
-The captured app flow was:
+## Persistent login
 
-```text
-Sign in with Apple
-       │
-       ▼
-auth.poyp.app / Supabase Auth
-       │
-       ▼
-access_token + refresh_token
-       │
-       ▼
-Authorization: Bearer <access_token>
-       │
-       ▼
-api.poyp.app
-```
-
-Observed Apple exchange:
+Save a token once:
 
 ```powershell
-$env:POYP_APPLE_ID_TOKEN="..."
-$env:POYP_APPLE_ACCESS_TOKEN="..."
-$env:POYP_APPLE_NONCE="..."
-poyto login-apple
+poyto login
 ```
 
-A successful Apple exchange is persisted automatically. If expiry metadata and a refresh token are available, Poyto refreshes before expiry. If an authenticated request receives HTTP 401, Poyto performs at most one refresh and retries that request once.
+Then use normal commands without passing a token:
 
-The supplied HARs directly showed POYP issuing a refresh token, but did not contain a refresh exchange itself. Poyto's refresh request therefore follows the standard Supabase/GoTrue flow; this distinction is documented in [`docs/refresh-tokens.md`](docs/refresh-tokens.md).
+```powershell
+poyto profile
+poyto balances
+poyto markets --limit 20
+```
 
 Default session locations:
 
@@ -145,19 +121,28 @@ Other:   $XDG_STATE_HOME/poyto/session.json
          or ~/.local/state/poyto/session.json
 ```
 
-Override with `POYTO_SESSION_FILE`. Token input files can also be selected with `POYTO_TOKEN_FILE` or `POYP_TOKEN_FILE`.
+`POYTO_SESSION_FILE` overrides the location.
 
-## Market data
+## Refresh tokens
 
-```powershell
-poyto markets --limit 100 --sort recommended
-poyto market MARKET_ID
-poyto activity MARKET_ID --types comment
-poyto charts MARKET_ID --tf max
-poyto price BTC
+When expiry metadata and a refresh token are available, Poyto refreshes shortly before expiry and persists the newly returned access/refresh pair. If an authenticated POYP request receives HTTP 401, Poyto attempts one refresh and retries the request once.
+
+The supplied HARs directly showed POYP issuing a refresh token, but did not contain a refresh exchange. The refresh request therefore follows the standard Supabase/GoTrue flow used by the observed auth backend. See [`docs/refresh-tokens.md`](docs/refresh-tokens.md) for the exact distinction.
+
+## API examples
+
+```python
+from poyto import PoytoClient
+
+with PoytoClient() as client:
+    print(client.profile())
+    print(client.balances())
+    print(client.markets(limit=20))
+    print(client.market("MARKET_ID"))
+    print(client.asset_price("BTC"))
 ```
 
-Automatic pagination is available in Python:
+Automatic pagination:
 
 ```python
 with PoytoClient() as client:
@@ -165,9 +150,7 @@ with PoytoClient() as client:
         print(market["id"], market["title"])
 ```
 
-## Account-changing actions
-
-The CLI requires `--yes` for state-changing operations.
+Observed write operations include buy/sell, comments, likes, follow/unfollow, referral-code update, notification read-all, and ad-reward claim. The CLI requires `--yes` for state-changing commands.
 
 ```powershell
 poyto buy MARKET_ID 1 10 --yes
@@ -176,29 +159,22 @@ poyto comment MARKET_ID "hello" --yes
 poyto follow USER_ID --yes
 ```
 
-These calls can affect points, positions or account state. Verify arguments before running them.
+## Architecture
 
-## Device headers
-
-The observed app sends device/app metadata headers. Configure them with environment variables when needed:
+The implementation is intentionally split so each layer has one job:
 
 ```text
-POYP_APP_VERSION
-POYP_OS
-POYP_OS_VERSION
-POYP_DEVICE_MODEL
-POYP_DEVICE_ID
-POYP_VENDOR_ID
-POYP_OTA_GENERATION
-POYP_IS_DEVICE
+config -> credentials/session -> HTTP transport -> resources -> high-level client -> CLI
 ```
 
-No device-specific value from the supplied HAR captures is committed.
+Resource methods live under `src/poyto/resources/`, transport/auth exchange under `_http.py`, lifecycle policy under `auto.py`, and CLI parsing/execution in separate modules. See [`docs/architecture.md`](docs/architecture.md).
 
 ## Documentation
 
+- [Configuration and environment variables](docs/configuration.md)
 - [Authentication and token loading](docs/authentication.md)
 - [Refresh tokens](docs/refresh-tokens.md)
+- [Architecture](docs/architecture.md)
 - [Python API](docs/python-api.md)
 - [CLI reference](docs/cli.md)
 - [Observed endpoints](docs/endpoints.md)
@@ -214,19 +190,14 @@ pip install -e '.[dev]'
 pytest
 ruff check .
 mypy src/poyto
+python -m build
 ```
 
-CI runs the test suite and Ruff on Python 3.10–3.13.
-
-## Scope and limitations
-
-This repository implements only endpoints and request shapes directly observed in the supplied captures. An endpoint being present here does **not** mean it is stable or officially supported. Where an operation has not been observed, the client intentionally avoids inventing a dedicated method.
+CI validates Python 3.10–3.14.
 
 ## Security
 
-Never commit HAR captures, access tokens, refresh tokens, Apple identity tokens, cookies or stable device identifiers. The `.gitignore` blocks common HAR and environment-secret files, but you should still review commits before pushing.
-
-If a credential from an old HAR may still be valid, revoke/rotate it before sharing the HAR with anyone.
+Never commit HAR captures, access tokens, refresh tokens, Apple identity tokens, cookies, or stable device identifiers. Token/session files should remain outside the repository.
 
 ## License
 

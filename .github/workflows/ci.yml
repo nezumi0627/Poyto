@@ -12,8 +12,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -24,5 +25,7 @@ jobs:
       - run: pip install -e '.[dev]'
       - run: pytest
       - run: ruff check .
-      - if: matrix.python-version == '3.13'
+      - if: matrix.python-version == '3.14'
         run: mypy src/poyto
+      - if: matrix.python-version == '3.14'
+        run: python -m build

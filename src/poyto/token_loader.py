@@ -4,10 +4,21 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .exceptions import CredentialError
 from .models import AuthSession
 
-_ACCESS_KEYS = ("access_token", "POYP_ACCESS_TOKEN", "token")
-_REFRESH_KEYS = ("refresh_token", "POYP_REFRESH_TOKEN")
+_ACCESS_KEYS = (
+    "access_token",
+    "token",
+    "POYTO_TOKEN",
+    "POYTO_ACCESS_TOKEN",
+    "POYP_ACCESS_TOKEN",
+)
+_REFRESH_KEYS = (
+    "refresh_token",
+    "POYTO_REFRESH_TOKEN",
+    "POYP_REFRESH_TOKEN",
+)
 
 
 def _first(data: dict[str, Any], keys: tuple[str, ...]) -> Any:
@@ -19,18 +30,21 @@ def _first(data: dict[str, Any], keys: tuple[str, ...]) -> Any:
 
 
 def parse_token_text(text: str) -> AuthSession:
-    """Parse JSON, .env-style, or simple plaintext token data."""
+    """Parse JSON, dotenv-style, or plain text credential data."""
     stripped = text.strip()
     if not stripped:
-        raise ValueError("token source is empty")
+        raise CredentialError("token source is empty")
 
     if stripped.startswith("{"):
-        data = json.loads(stripped)
+        try:
+            data = json.loads(stripped)
+        except json.JSONDecodeError as exc:
+            raise CredentialError("token JSON is invalid") from exc
         if not isinstance(data, dict):
-            raise ValueError("token JSON must be an object")
+            raise CredentialError("token JSON must be an object")
         access = _first(data, _ACCESS_KEYS)
         if not isinstance(access, str) or not access.strip():
-            raise ValueError("token JSON does not contain an access token")
+            raise CredentialError("token JSON does not contain an access token")
         normalized = dict(data)
         normalized["access_token"] = access.strip()
         refresh = _first(data, _REFRESH_KEYS)
@@ -61,7 +75,7 @@ def parse_token_text(text: str) -> AuthSession:
             refresh = plain[1]
 
     if not isinstance(access, str) or not access.strip():
-        raise ValueError("token source does not contain an access token")
+        raise CredentialError("token source does not contain an access token")
 
     return AuthSession(
         access_token=access.strip(),
@@ -70,19 +84,22 @@ def parse_token_text(text: str) -> AuthSession:
 
 
 def load_token_file(path: str | Path) -> AuthSession:
-    return parse_token_text(Path(path).expanduser().read_text(encoding="utf-8-sig"))
+    resolved = Path(path).expanduser()
+    try:
+        text = resolved.read_text(encoding="utf-8-sig")
+    except OSError as exc:
+        raise CredentialError(f"cannot read token file: {resolved}") from exc
+    return parse_token_text(text)
 
 
 def load_token_source(source: str | Path) -> AuthSession:
-    """Load a literal token or token file.
+    """Load a literal token or file reference.
 
-    ``Path`` always means a file. A string prefixed with ``@`` or ``file:`` also
-    means a file. Other strings are treated as a file only when that path exists;
-    otherwise they are treated as a literal access token.
+    ``Path`` always means file input. Prefixes ``@`` and ``file:`` force file
+    loading. An unprefixed string is treated as a file only when that path exists.
     """
     if isinstance(source, Path):
         return load_token_file(source)
-
     if source.startswith("@"):
         return load_token_file(source[1:])
     if source.startswith("file:"):
@@ -97,5 +114,8 @@ def load_token_source(source: str | Path) -> AuthSession:
 
     value = source.strip()
     if not value:
-        raise ValueError("token is empty")
+        raise CredentialError("token is empty")
     return AuthSession(access_token=value)
+
+
+__all__ = ["load_token_file", "load_token_source", "parse_token_text"]

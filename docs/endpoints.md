@@ -1,12 +1,21 @@
 # Observed endpoints
 
-This list is based on the supplied POYP HAR captures from 2026-09-08. It is an observation log, not an official API specification.
+This list is based on supplied POYP HAR captures from 2026-09-08. It is an observation log, not an official API specification.
 
 ## Authentication
 
+Directly observed:
+
 - `POST /auth/v1/token?grant_type=id_token`
+- `POST /auth/v1/logout?scope=global`
+
+The id-token exchange response included an access token and refresh token.
+
+Implemented from standard Supabase/GoTrue behavior, **not directly present in the supplied HARs**:
+
 - `POST /auth/v1/token?grant_type=refresh_token`
-- `POST /auth/v1/logout`
+
+See [refresh tokens](refresh-tokens.md) for the distinction.
 
 ## Account
 
@@ -45,16 +54,16 @@ This list is based on the supplied POYP HAR captures from 2026-09-08. It is an o
 - `GET /api/markets/{marketId}/activity`
 - `GET /api/markets/charts`
 - `GET /api/me/markets/{marketId}/positions`
-- `GET /api/price/{asset}`
+- `GET /api/prices/{asset}`
 
 ## Trading
 
 - `POST /api/trades/buy`
 - `POST /api/trades/sell`
 
-Observed buy fields include `marketId`, `positionIndex`, `pointAmount`, `orderSurface`, `displayPreset`, `entryPoint`, `requestId`, `sessionId`, and `deviceId`.
+Observed buy fields: `marketId`, `positionIndex`, `pointAmount`, `orderSurface`, `requestId`, `displayPreset`, `entryPoint`, `sessionId`, `deviceId`.
 
-Observed sell fields include `marketId`, `positionIndex`, `shares`, `orderSurface`, `entryPoint`, `sessionId`, and `deviceId`.
+Observed sell fields: `marketId`, `positionIndex`, `shares`, `orderSurface`, `entryPoint`, `sessionId`, `deviceId`.
 
 ## Comments
 
@@ -63,6 +72,8 @@ Observed sell fields include `marketId`, `positionIndex`, `shares`, `orderSurfac
 - `PUT /api/comments/{commentId}`
 - `DELETE /api/comments/{commentId}`
 - `POST /api/comments/{commentId}/likes`
+
+No unlike request was present in the supplied captures.
 
 ## Discovery
 
@@ -96,4 +107,4 @@ Observed sell fields include `marketId`, `positionIndex`, `shares`, `orderSurfac
 - `GET /api/walking-challenge/status`
 - `POST /api/events`
 
-Anything not listed here should be treated as unknown until observed in new traffic.
+Anything not listed as observed here should be treated as unknown until captured or otherwise independently documented.

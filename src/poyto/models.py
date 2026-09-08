@@ -5,6 +5,14 @@ from dataclasses import dataclass
 from typing import Any
 
 
+def _env(*names: str) -> str | None:
+    for name in names:
+        value = os.getenv(name)
+        if value not in (None, ""):
+            return value
+    return None
+
+
 @dataclass(slots=True)
 class AuthSession:
     access_token: str
@@ -15,7 +23,7 @@ class AuthSession:
     user: dict[str, Any] | None = None
 
     @classmethod
-    def from_json(cls, data: dict[str, Any]) -> "AuthSession":
+    def from_json(cls, data: dict[str, Any]) -> AuthSession:
         return cls(
             access_token=data["access_token"],
             refresh_token=data.get("refresh_token"),
@@ -38,15 +46,15 @@ class DeviceInfo:
     is_device: bool = True
 
     @classmethod
-    def from_env(cls) -> "DeviceInfo":
+    def from_env(cls) -> DeviceInfo:
+        is_device = _env("POYTO_IS_DEVICE", "POYP_IS_DEVICE") or "true"
         return cls(
-            app_version=os.getenv("POYP_APP_VERSION", "1.3.9"),
-            os=os.getenv("POYP_OS", "ios"),
-            os_version=os.getenv("POYP_OS_VERSION"),
-            device_model=os.getenv("POYP_DEVICE_MODEL"),
-            device_id=os.getenv("POYP_DEVICE_ID"),
-            vendor_id=os.getenv("POYP_VENDOR_ID"),
-            ota_generation=os.getenv("POYP_OTA_GENERATION"),
-            is_device=os.getenv("POYP_IS_DEVICE", "true").lower()
-            not in {"0", "false", "no"},
+            app_version=_env("POYTO_APP_VERSION", "POYP_APP_VERSION") or "1.3.9",
+            os=_env("POYTO_OS", "POYP_OS") or "ios",
+            os_version=_env("POYTO_OS_VERSION", "POYP_OS_VERSION"),
+            device_model=_env("POYTO_DEVICE_MODEL", "POYP_DEVICE_MODEL"),
+            device_id=_env("POYTO_DEVICE_ID", "POYP_DEVICE_ID"),
+            vendor_id=_env("POYTO_VENDOR_ID", "POYP_VENDOR_ID"),
+            ota_generation=_env("POYTO_OTA_GENERATION", "POYP_OTA_GENERATION"),
+            is_device=is_device.strip().lower() not in {"0", "false", "no", "off"},
         )

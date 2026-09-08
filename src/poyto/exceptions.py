@@ -4,11 +4,15 @@ from typing import Any
 
 
 class PoytoError(RuntimeError):
-    """Base exception for the unofficial POYP client."""
+    """Base exception for Poyto."""
 
 
 class AuthenticationError(PoytoError):
     """Raised when authentication credentials are missing or rejected."""
+
+
+class CredentialError(PoytoError, ValueError):
+    """Raised when a token source or credential file cannot be parsed."""
 
 
 class APIError(PoytoError):

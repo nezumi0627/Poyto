@@ -2,6 +2,25 @@
 
 The package installs the `poyto` command.
 
+## Global credential options
+
+```text
+poyto [--token TOKEN_OR_SOURCE] [--refresh-token TOKEN] [--token-file PATH] COMMAND ...
+```
+
+If omitted, the same environment/session resolver used by `PoytoClient()` is used automatically.
+
+## Authentication
+
+```text
+poyto login [TOKEN_OR_SOURCE] [--refresh-token TOKEN]
+poyto login-apple [--id-token TOKEN] [--apple-access-token TOKEN] [--nonce VALUE]
+poyto refresh
+poyto logout [--local-only]
+```
+
+`poyto login` prompts without terminal echo when its token argument is omitted. `login-apple` also reads `POYTO_APPLE_ID_TOKEN`, `POYTO_APPLE_ACCESS_TOKEN`, and `POYTO_APPLE_NONCE` (plus legacy `POYP_*` aliases).
+
 ## Read-only commands
 
 ```text
@@ -24,15 +43,6 @@ poyto transactions [--currency point] [--limit N] [--cursor CURSOR]
 poyto user USER_ID [--tab active] [--sort newest]
 poyto referral-available CODE
 ```
-
-## Authentication
-
-```text
-poyto login-apple
-poyto refresh
-```
-
-Credentials can be supplied through `POYP_ACCESS_TOKEN`, `POYP_REFRESH_TOKEN`, `POYP_APPLE_ID_TOKEN`, `POYP_APPLE_ACCESS_TOKEN`, and `POYP_APPLE_NONCE`.
 
 ## State-changing commands
 
@@ -59,3 +69,5 @@ poyto raw POST /api/some/new-endpoint --json '{"key":"value"}'
 ```
 
 Use `raw` only for endpoints you have independently observed or documented. Poyto intentionally does not invent request shapes for unseen APIs.
+
+See [configuration](configuration.md) for the full environment-variable matrix.
