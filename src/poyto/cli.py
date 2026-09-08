@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import os
 import sys
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
-from .client import PoytoClient
+from .auto import PoytoClient
 from .exceptions import PoytoError
 
 
@@ -32,17 +34,24 @@ def _yes(parser: argparse.ArgumentParser, args: argparse.Namespace, action: str)
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="poyto", description="Poyto — unofficial POYP API CLI")
-    p.add_argument("--token", default=os.getenv("POYP_ACCESS_TOKEN"))
+    p.add_argument("--token", default=os.getenv("POYP_ACCESS_TOKEN"), help="temporary access token; saved session is used when omitted")
     p.add_argument("--refresh-token", default=os.getenv("POYP_REFRESH_TOKEN"))
     sub = p.add_subparsers(dest="command", required=True)
 
     for name in ("health", "profile", "balances", "portfolio", "missions", "streak", "referral", "notifications", "home", "walking", "refresh"):
         sub.add_parser(name)
 
-    login = sub.add_parser("login-apple")
-    login.add_argument("--id-token", default=os.getenv("POYP_APPLE_ID_TOKEN"))
-    login.add_argument("--apple-access-token", default=os.getenv("POYP_APPLE_ACCESS_TOKEN"))
-    login.add_argument("--nonce", default=os.getenv("POYP_APPLE_NONCE"))
+    login = sub.add_parser("login", help="save a POYP access token locally")
+    login.add_argument("token", nargs="?", help="omit to enter it without terminal echo")
+    login.add_argument("--refresh-token")
+
+    apple = sub.add_parser("login-apple")
+    apple.add_argument("--id-token", default=os.getenv("POYP_APPLE_ID_TOKEN"))
+    apple.add_argument("--apple-access-token", default=os.getenv("POYP_APPLE_ACCESS_TOKEN"))
+    apple.add_argument("--nonce", default=os.getenv("POYP_APPLE_NONCE"))
+
+    logout = sub.add_parser("logout")
+    logout.add_argument("--local-only", action="store_true", help="only delete Poyto's local saved session")
 
     markets = sub.add_parser("markets")
     markets.add_argument("--limit", type=int, default=20)
@@ -105,6 +114,12 @@ def main(argv: list[str] | None = None) -> int:
                 "notifications": c.notifications, "walking": c.walking_challenge_status,
             }
             if cmd in simple: _dump(simple[cmd]())
+            elif cmd == "login":
+                token = args.token or getpass.getpass("POYP access token: ")
+                _dump(_masked(c.login(token, args.refresh_token)))
+            elif cmd == "logout":
+                c.logout(local_only=args.local_only)
+                _dump({"ok": True, "saved_session": False})
             elif cmd == "refresh": _dump(_masked(c.refresh()))
             elif cmd == "login-apple":
                 if not args.id_token: parser.error("--id-token または POYP_APPLE_ID_TOKEN が必要です")
