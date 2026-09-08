@@ -25,13 +25,17 @@ def recorder():
     return seen, httpx.MockTransport(handler)
 
 
+def isolated_client(**kwargs):
+    return PoytoClient(auto_load_session=False, save_session=False, **kwargs)
+
+
 def test_observed_request_shapes(recorder):
     seen, transport = recorder
     device = DeviceInfo(
         app_version="1.3.9", os="ios", os_version="26.1", device_model="iPhone",
         device_id="dev", vendor_id="vendor", ota_generation="1030904",
     )
-    with PoytoClient(access_token="testtoken", device=device, transport=transport) as client:
+    with isolated_client(access_token="testtoken", device=device, transport=transport) as client:
         client.profile()
         client.markets(limit=20, sort="ending_soon")
         client.market_screen_auxiliary("mid")
@@ -70,7 +74,7 @@ def test_observed_request_shapes(recorder):
 
 def test_apple_login_shape(recorder):
     seen, transport = recorder
-    with PoytoClient(transport=transport) as client:
+    with isolated_client(transport=transport) as client:
         session = client.login_with_apple(id_token="id", apple_access_token="apple", nonce="nonce")
     assert session.access_token == "a" * 40
     body = seen[-1][2]
@@ -81,7 +85,7 @@ def test_apple_login_shape(recorder):
 
 def test_authentication_required():
     transport = httpx.MockTransport(lambda _: httpx.Response(200, json={"ok": True}))
-    with PoytoClient(transport=transport) as client:
+    with isolated_client(transport=transport) as client:
         with pytest.raises(AuthenticationError):
             client.profile()
 
@@ -89,7 +93,7 @@ def test_authentication_required():
 def test_api_error_exposes_response_details():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(400, json={"error": "bad request"}, request=request)
-    with PoytoClient(access_token="token", transport=httpx.MockTransport(handler)) as client:
+    with isolated_client(access_token="token", transport=httpx.MockTransport(handler)) as client:
         with pytest.raises(APIError) as exc_info:
             client.profile()
     assert exc_info.value.status_code == 400
