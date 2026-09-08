@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import time
 
@@ -7,6 +8,14 @@ import httpx
 
 from poyto import AuthSession, PoytoClient, SessionStore
 from poyto.token_loader import load_token_file, parse_token_text
+
+
+def _jwt(payload: dict[str, object]) -> str:
+    def encode(value: dict[str, object]) -> str:
+        raw = json.dumps(value, separators=(",", ":")).encode()
+        return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+    return f"{encode({'alg': 'none', 'typ': 'JWT'})}.{encode(payload)}.signature"
 
 
 def test_session_store_round_trip(tmp_path):
@@ -35,6 +44,15 @@ def test_plaintext_token_parser():
     assert session.refresh_token == "refresh-token"
 
 
+def test_plaintext_jwt_derives_expiry_but_keeps_refresh_opaque():
+    access = _jwt({"iat": 1_700_000_000, "exp": 1_700_003_600})
+    refresh = "opaque123456"
+    session = parse_token_text(f"{access}\n{refresh}\n")
+    assert session.expires_at == 1_700_003_600
+    assert session.expires_in == 3600
+    assert session.refresh_token == refresh
+
+
 def test_env_style_token_parser():
     session = parse_token_text(
         "POYP_ACCESS_TOKEN='access-token'\nPOYP_REFRESH_TOKEN=refresh-token\n"
@@ -56,6 +74,14 @@ def test_json_token_parser():
     assert session.access_token == "access-token"
     assert session.refresh_token == "refresh-token"
     assert session.expires_at == 123
+
+
+def test_json_expiry_wins_over_decoded_jwt_metadata():
+    access = _jwt({"iat": 100, "exp": 200})
+    session = parse_token_text(
+        json.dumps({"access_token": access, "refresh_token": "opaque", "expires_at": 999})
+    )
+    assert session.expires_at == 999
 
 
 def test_token_file_loader(tmp_path):
