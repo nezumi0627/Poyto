@@ -3,6 +3,7 @@ from .config import Settings
 from .exceptions import APIError, AuthenticationError, CredentialError, PoytoError
 from .models import AuthSession, DeviceInfo
 from .session_store import SessionStore, default_session_path
+from .token_info import SessionInfo, session_info, token_kind
 from .token_loader import load_token_file, load_token_source, parse_token_text
 
 __all__ = [
@@ -13,12 +14,15 @@ __all__ = [
     "DeviceInfo",
     "PoytoClient",
     "PoytoError",
+    "SessionInfo",
     "SessionStore",
     "Settings",
     "default_session_path",
     "load_token_file",
     "load_token_source",
     "parse_token_text",
+    "session_info",
+    "token_kind",
     "PoypClient",
     "PoypError",
 ]
