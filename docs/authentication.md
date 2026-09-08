@@ -2,12 +2,112 @@
 
 Poyto loads and persists POYP sessions inside the library, so callers do not need to pass a token on every run.
 
-## Recommended flow
+## `token=`
 
-First login once:
+The simplest Python form is now:
+
+```python
+from poyto import PoytoClient
+
+client = PoytoClient(token="YOUR_ACCESS_TOKEN")
+print(client.profile())
+```
+
+`token=` accepts either a literal access token or a token file.
+
+```python
+from pathlib import Path
+from poyto import PoytoClient
+
+# Path objects always mean a file.
+client = PoytoClient(token=Path("token.txt"))
+
+# Existing string paths are also recognized.
+client = PoytoClient(token="token.txt")
+
+# Explicit file syntax is available when desired.
+client = PoytoClient(token="@token.txt")
+client = PoytoClient(token="file:token.txt")
+
+# Or use the unambiguous argument.
+client = PoytoClient(token_file="token.txt")
+```
+
+`POYTO_TOKEN_FILE` and the compatibility alias `POYP_TOKEN_FILE` can also point to a file.
+
+## Supported token-file formats
+
+### Plain access token
+
+```text
+ACCESS_TOKEN_HERE
+```
+
+### Plain access + refresh token
+
+The first non-empty line is the access token and the second is the refresh token.
+
+```text
+ACCESS_TOKEN_HERE
+REFRESH_TOKEN_HERE
+```
+
+### `.env` style
+
+```dotenv
+POYP_ACCESS_TOKEN=ACCESS_TOKEN_HERE
+POYP_REFRESH_TOKEN=REFRESH_TOKEN_HERE
+```
+
+`access_token=`, `refresh_token=` and `token=` keys are also accepted where appropriate.
+
+### JSON session
+
+```json
+{
+  "access_token": "ACCESS_TOKEN_HERE",
+  "refresh_token": "REFRESH_TOKEN_HERE",
+  "expires_in": 3600,
+  "expires_at": 1790000000,
+  "token_type": "bearer"
+}
+```
+
+When expiry metadata is present, automatic pre-expiry refresh can use it.
+
+## Persist once, use automatically
+
+You can save a token once from Python:
+
+```python
+from poyto import PoytoClient
+
+with PoytoClient() as client:
+    client.login("ACCESS_TOKEN", "REFRESH_TOKEN")
+```
+
+A file can be persisted the same way:
+
+```python
+client.login("@token.txt")
+# or
+client.login_file("token.txt")
+```
+
+After that, normal code needs no token argument:
+
+```python
+with PoytoClient() as client:
+    print(client.profile())
+```
+
+CLI:
 
 ```powershell
 poyto login
+poyto profile
+poyto balances
+poyto markets
 ```
 
 The CLI asks for the access token without echoing it. If you also have a refresh token:
@@ -16,34 +116,19 @@ The CLI asks for the access token without echoing it. If you also have a refresh
 poyto login --refresh-token "..."
 ```
 
-After that, normal commands load the saved session automatically:
+## Token-source priority
 
-```powershell
-poyto profile
-poyto balances
-poyto markets
-```
+Poyto intentionally avoids mixing a refresh token from an unrelated saved session with an explicitly supplied access token.
 
-Python works the same way:
+The effective access-token priority is:
 
-```python
-from poyto import PoytoClient
+1. `access_token=`
+2. `token=` / `token_file=`
+3. `POYP_ACCESS_TOKEN`
+4. `POYTO_TOKEN_FILE` / `POYP_TOKEN_FILE`
+5. Poyto's saved session
 
-with PoytoClient() as client:
-    print(client.profile())
-```
-
-For an existing token from your own code:
-
-```python
-from poyto import PoytoClient
-
-with PoytoClient() as client:
-    client.login(access_token, refresh_token)
-    print(client.profile())
-```
-
-`login()` saves the session by default. The next `PoytoClient()` automatically reads it.
+An explicitly supplied `refresh_token=` can accompany the selected source.
 
 ## Apple exchange
 
@@ -74,13 +159,15 @@ Successful Apple login is persisted automatically.
 
 ## Automatic refresh
 
-If the saved session contains both `expires_at` and a refresh token, `PoytoClient()` refreshes it when it is expired or within 60 seconds of expiry, then writes the new session back to disk.
+If a saved/file session contains both `expires_at` and a refresh token, `PoytoClient()` refreshes it when it is expired or within 60 seconds of expiry. If an authenticated API request later returns HTTP 401, Poyto refreshes once and retries the original request once when a refresh token is available.
 
 Manual refresh still works:
 
 ```python
 client.refresh()
 ```
+
+Refresh-token rotation and the distinction between observed POYP behavior and standard Supabase behavior are documented in [Refresh tokens](refresh-tokens.md).
 
 ## Session location
 
@@ -91,8 +178,6 @@ Poyto does not write credentials into the repository or current working director
 - Override: `POYTO_SESSION_FILE=/custom/path/session.json`
 
 On POSIX systems Poyto attempts to set the session file to mode `0600`.
-
-For environments that already provide secrets, explicit constructor arguments and `POYP_ACCESS_TOKEN` / `POYP_REFRESH_TOKEN` still take precedence over the saved session.
 
 ## Logout
 
