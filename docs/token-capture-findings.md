@@ -1,18 +1,18 @@
-# Token findings from the 2026-09-08 capture
+# Token behavior notes
 
-This document records only token properties that were directly observable in the supplied POYP HAR. Secret values are intentionally omitted.
+This document records token properties that are sufficiently established for the current Poyto implementation. Secret values are intentionally omitted.
 
-## Confirmed from the capture
+## Authentication service
 
-POYP used `https://auth.poyp.app` for Supabase Auth and `https://api.poyp.app` for its application API.
+POYP uses `https://auth.poyp.app` for Supabase Auth and `https://api.poyp.app` for its application API.
 
-The Apple sign-in exchange was:
+The Apple sign-in exchange uses:
 
 ```text
 POST /auth/v1/token?grant_type=id_token
 ```
 
-The request carried the public Supabase publishable key in both `apikey` and `Authorization: Bearer <publishable-key>`. Its JSON body contained:
+The request carries the public Supabase publishable key and includes provider credentials required by the Apple sign-in flow. Relevant fields include:
 
 ```text
 provider
@@ -22,9 +22,9 @@ nonce
 gotrue_meta_security
 ```
 
-For this capture, `provider` was `apple`. The `access_token` field in this request is the Apple/provider credential used during the identity exchange; it is **not** the POYP/Supabase session access token returned by the response.
+The `access_token` field in this request is the Apple/provider credential used during the identity exchange; it is **not** the POYP/Supabase session access token returned by the response.
 
-The successful response contained:
+A successful response includes:
 
 ```text
 access_token
@@ -35,23 +35,21 @@ expires_at
 user
 ```
 
-### Session access token
+## Session access token
 
-The returned POYP/Supabase `access_token` was a JWT: three dot-separated Base64URL sections and an `eyJ...` prefix. Its claims showed an authenticated Supabase session. The response reported `token_type = bearer`.
-
-The captured session had a 3600-second access-token lifetime, and the JWT `exp` claim matched the response `expires_at`. This is direct evidence for that captured session, not a promise that POYP can never change its configured JWT lifetime.
-
-Authenticated requests to `api.poyp.app` used a POYP/Supabase session access token as:
+The returned POYP/Supabase `access_token` is a JWT. Authenticated requests to `api.poyp.app` use it as:
 
 ```text
 Authorization: Bearer <access-token>
 ```
 
-### Refresh token
+A known successful session used a 3600-second access-token lifetime, and the JWT `exp` claim matched `expires_at`. That value should not be treated as a permanent guarantee.
 
-The returned `refresh_token` was an opaque string, not a JWT. In this capture it was short and contained no JWT dot separators. Therefore Poyto must **not** assume that refresh tokens begin with `eyJ`, contain claims, or can be decoded as JWTs.
+## Refresh token
 
-The refresh token should be treated as an opaque secret and passed back exactly as issued.
+The returned `refresh_token` is an opaque secret, not a JWT. Poyto must not assume refresh tokens begin with `eyJ`, contain claims, or can be decoded as JWTs.
+
+The refresh token should be stored and returned exactly as issued.
 
 ## Important distinction: two different `access_token` fields
 
@@ -62,27 +60,21 @@ The Apple token-exchange request and the Supabase session response both contain 
 
 Poyto calls the first one `apple_access_token` in its Python API to avoid mixing them up.
 
-## What this capture did NOT confirm
+## Refresh exchange boundary
 
-There was no request using:
+The exact POYP refresh exchange is not directly established. Poyto's refresh implementation follows the documented Supabase/GoTrue endpoint for the same authentication service, but documentation must keep that behavior labeled **implemented/inferred** rather than guaranteed POYP behavior.
 
-```text
-POST /auth/v1/token?grant_type=refresh_token
-```
-
-in this HAR. Therefore the exact POYP refresh exchange remains unobserved in supplied traffic. Poyto's refresh implementation follows the documented Supabase/GoTrue endpoint for the same auth service, but docs must not label that request as HAR-confirmed until a capture actually contains it.
-
-Likewise, the capture cannot prove POYP's project-specific refresh-token reuse interval, session lifetime policy, or single-session policy. Supabase documents defaults and behavior, but those settings are configurable by the project owner.
+Likewise, Poyto does not claim POYP's project-specific refresh-token reuse interval, session lifetime policy, inactivity timeout, or single-session policy. Supabase documents defaults and behavior, but those settings are configurable by the project owner.
 
 ## Implementation rules derived from the evidence
 
 Poyto follows these rules:
 
 - access tokens may be inspected as JWTs only to obtain local metadata such as `exp`; decoding claims is not signature verification;
-- refresh tokens are always opaque strings;
+- refresh tokens are always treated as opaque strings;
 - a refresh token is never inferred from an access token;
 - if a JWT `exp` is available, Poyto can proactively refresh before expiry even when a token was loaded from plain text;
 - successful refresh responses replace the complete stored token pair;
-- credentials from HAR files are never committed to the repository, examples, tests, or documentation.
+- real credentials and private traffic exports are never committed to the repository, examples, tests, or documentation.
 
-See also `refresh-tokens.md` for the distinction between captured POYP behavior and documented Supabase behavior.
+See also `refresh-tokens.md` for the distinction between established POYP behavior and documented Supabase behavior.
