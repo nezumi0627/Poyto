@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypedDict
 
 
 def _env(*names: str) -> str | None:
@@ -11,6 +11,14 @@ def _env(*names: str) -> str | None:
         if value not in (None, ""):
             return value
     return None
+
+
+class AdRewardClaimResponse(TypedDict):
+    earnId: str
+    rewardPoints: int
+    pointBalanceAfter: int
+    dailyViewCount: int
+    dailyViewLimit: int
 
 
 @dataclass(slots=True)

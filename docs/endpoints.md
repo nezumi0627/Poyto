@@ -1,6 +1,6 @@
 # Observed endpoints
 
-This list is based on supplied POYP HAR captures from 2026-09-08. It is an observation log, not an official API specification.
+This list is based on supplied POYP HAR captures from 2026-09-08. It is an observation log, not an official API specification. For implemented feature status see [capabilities](capabilities.md); for unsupported/unverified behavior see [known gaps](known-gaps.md).
 
 ## Authentication
 
@@ -8,10 +8,11 @@ Directly observed:
 
 - `POST /auth/v1/token?grant_type=id_token`
 - `POST /auth/v1/logout?scope=global`
+- `GET /auth/v1/user`
 
 The id-token exchange response included an access token and refresh token.
 
-Implemented from standard Supabase/GoTrue behavior, **not directly present in the supplied HARs**:
+Implemented from standard Supabase/GoTrue behavior, **not directly present in the supplied POYP HARs**:
 
 - `POST /auth/v1/token?grant_type=refresh_token`
 
@@ -37,6 +38,8 @@ See [refresh tokens](refresh-tokens.md) for the distinction.
 - `POST /api/me/push-tokens`
 - `POST /api/me/ad-rewards/claim`
 - `GET /api/me/blocked-users`
+
+The newer ad-reward capture includes an HTTP 200 response for `source=watch_ad`; see [ad rewards](ad-rewards.md).
 
 ## Referral
 
@@ -107,4 +110,4 @@ No unlike request was present in the supplied captures.
 - `GET /api/walking-challenge/status`
 - `POST /api/events`
 
-Anything not listed as observed here should be treated as unknown until captured or otherwise independently documented.
+Anything not listed as observed here should be treated as unknown until captured or otherwise independently documented. Absence from a HAR means unknown, not necessarily nonexistent.
