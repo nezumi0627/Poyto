@@ -7,9 +7,10 @@ Unofficial Python client and CLI for **POYP**, reconstructed from traffic captur
 
 ## Highlights
 
+- `PoytoClient(token=...)` with literal tokens or plaintext/JSON/.env token files
 - One-time login with automatic local session loading
-- Automatic refresh when a saved session is near expiry, plus one-time retry on authenticated HTTP 401
-- Apple/Supabase session exchange and refresh
+- Automatic refresh near expiry and one-time refresh/retry on authenticated HTTP 401
+- Apple/Supabase session exchange and refresh-token rotation handling
 - Profile, balances, portfolio, missions and notifications
 - Market listing, detail, charts, activity and positions
 - Buy and sell requests observed in real app traffic
@@ -46,13 +47,47 @@ pip install -e '.[dev]'
 
 ## Quick start
 
-Login once:
+Use a token directly:
+
+```python
+from poyto import PoytoClient
+
+with PoytoClient(token="YOUR_ACCESS_TOKEN") as client:
+    print(client.profile())
+```
+
+Or load a file directly from the library:
+
+```python
+from pathlib import Path
+from poyto import PoytoClient
+
+with PoytoClient(token=Path("token.txt")) as client:
+    print(client.balances())
+```
+
+`token.txt` may contain just an access token:
+
+```text
+ACCESS_TOKEN
+```
+
+or access + refresh token on separate lines:
+
+```text
+ACCESS_TOKEN
+REFRESH_TOKEN
+```
+
+JSON and `.env`-style files are supported too. You can also use `token_file="token.txt"`, `token="@token.txt"`, or `token="file:token.txt"`.
+
+To avoid supplying a token on every run, persist it once:
 
 ```powershell
 poyto login
 ```
 
-The token is entered without terminal echo and saved outside the repository. After that, commands automatically load the session:
+Then:
 
 ```powershell
 poyto profile
@@ -60,28 +95,14 @@ poyto balances
 poyto markets --limit 20
 ```
 
-Python is the same — no token argument is needed after the first login:
+Python then needs no token argument either:
 
 ```python
 from poyto import PoytoClient
 
 with PoytoClient() as client:
-    profile = client.profile()
-    markets = client.markets(limit=20)
-    print(profile)
-    print(markets)
+    print(client.profile())
 ```
-
-To save a token from your own Python code:
-
-```python
-from poyto import PoytoClient
-
-with PoytoClient() as client:
-    client.login(access_token, refresh_token)
-```
-
-Constructor arguments and `POYP_ACCESS_TOKEN` / `POYP_REFRESH_TOKEN` still work and take precedence over the saved session.
 
 ## Authentication
 
@@ -112,7 +133,9 @@ $env:POYP_APPLE_NONCE="..."
 poyto login-apple
 ```
 
-A successful Apple exchange is persisted automatically. If the saved session includes `expires_at` and a refresh token, Poyto refreshes it before expiry. If an authenticated request later receives HTTP 401, Poyto performs one refresh and retries that request once.
+A successful Apple exchange is persisted automatically. If expiry metadata and a refresh token are available, Poyto refreshes before expiry. If an authenticated request receives HTTP 401, Poyto performs at most one refresh and retries that request once.
+
+The supplied HARs directly showed POYP issuing a refresh token, but did not contain a refresh exchange itself. Poyto's refresh request therefore follows the standard Supabase/GoTrue flow; this distinction is documented in [`docs/refresh-tokens.md`](docs/refresh-tokens.md).
 
 Default session locations:
 
@@ -122,7 +145,7 @@ Other:   $XDG_STATE_HOME/poyto/session.json
          or ~/.local/state/poyto/session.json
 ```
 
-Override with `POYTO_SESSION_FILE`. See [`docs/authentication.md`](docs/authentication.md).
+Override with `POYTO_SESSION_FILE`. Token input files can also be selected with `POYTO_TOKEN_FILE` or `POYP_TOKEN_FILE`.
 
 ## Market data
 
@@ -174,7 +197,8 @@ No device-specific value from the supplied HAR captures is committed.
 
 ## Documentation
 
-- [Authentication](docs/authentication.md)
+- [Authentication and token loading](docs/authentication.md)
+- [Refresh tokens](docs/refresh-tokens.md)
 - [Python API](docs/python-api.md)
 - [CLI reference](docs/cli.md)
 - [Observed endpoints](docs/endpoints.md)
