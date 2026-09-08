@@ -7,6 +7,8 @@ Unofficial Python client and CLI for **POYP**, reconstructed from traffic captur
 
 ## Highlights
 
+- One-time login with automatic local session loading
+- Automatic refresh when a saved session is near expiry, plus one-time retry on authenticated HTTP 401
 - Apple/Supabase session exchange and refresh
 - Profile, balances, portfolio, missions and notifications
 - Market listing, detail, charts, activity and positions
@@ -44,26 +46,42 @@ pip install -e '.[dev]'
 
 ## Quick start
 
-Set an existing POYP access token:
+Login once:
 
 ```powershell
-$env:POYP_ACCESS_TOKEN="..."
+poyto login
+```
+
+The token is entered without terminal echo and saved outside the repository. After that, commands automatically load the session:
+
+```powershell
 poyto profile
 poyto balances
 poyto markets --limit 20
 ```
 
-Python:
+Python is the same — no token argument is needed after the first login:
 
 ```python
 from poyto import PoytoClient
 
-with PoytoClient.from_env() as client:
+with PoytoClient() as client:
     profile = client.profile()
     markets = client.markets(limit=20)
     print(profile)
     print(markets)
 ```
+
+To save a token from your own Python code:
+
+```python
+from poyto import PoytoClient
+
+with PoytoClient() as client:
+    client.login(access_token, refresh_token)
+```
+
+Constructor arguments and `POYP_ACCESS_TOKEN` / `POYP_REFRESH_TOKEN` still work and take precedence over the saved session.
 
 ## Authentication
 
@@ -94,7 +112,17 @@ $env:POYP_APPLE_NONCE="..."
 poyto login-apple
 ```
 
-The CLI masks returned tokens instead of printing them in full. See [`docs/authentication.md`](docs/authentication.md).
+A successful Apple exchange is persisted automatically. If the saved session includes `expires_at` and a refresh token, Poyto refreshes it before expiry. If an authenticated request later receives HTTP 401, Poyto performs one refresh and retries that request once.
+
+Default session locations:
+
+```text
+Windows: %LOCALAPPDATA%/Poyto/session.json
+Other:   $XDG_STATE_HOME/poyto/session.json
+         or ~/.local/state/poyto/session.json
+```
+
+Override with `POYTO_SESSION_FILE`. See [`docs/authentication.md`](docs/authentication.md).
 
 ## Market data
 
@@ -109,7 +137,7 @@ poyto price BTC
 Automatic pagination is available in Python:
 
 ```python
-with PoytoClient.from_env() as client:
+with PoytoClient() as client:
     for market in client.iter_markets(limit=100):
         print(market["id"], market["title"])
 ```
