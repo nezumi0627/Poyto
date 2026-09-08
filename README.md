@@ -20,7 +20,7 @@ Poyto currently covers the major observed POYP HTTP surfaces:
 - Python API plus CLI, with `--yes` confirmation for state-changing CLI commands
 - token files, environment configuration, masked session inspection, typed package metadata, and network-free regression tests
 
-The implementation is deliberately conservative: an existing method does not automatically mean the complete server behavior is known. See **[Capability inventory](docs/capabilities.md)** for the full implemented list and its evidence level.
+Current implementation snapshot: **21 Python source files / 1,718 physical lines / 1,443 non-blank lines**, plus **412 test lines**. See [Capability inventory](docs/capabilities.md) for the per-file breakdown and evidence level of every major feature.
 
 ## What is not proven
 
@@ -32,19 +32,17 @@ Poyto explicitly tracks things that are missing enough evidence instead of guess
 - ad-reward server-side eligibility/proof rules are unknown even though the `watch_ad` claim request and one HTTP 200 response were captured
 - observed reward values such as 5 points and a 2/5 daily count are observations, not hard-coded universal constants
 
-See **[Known gaps and unverified behavior](docs/known-gaps.md)** for the canonical do-not-claim list.
+See [Known gaps and unverified behavior](docs/known-gaps.md) for the canonical do-not-claim list.
 
 ## Code size
 
-Poyto keeps code-size accounting reproducible instead of manually estimating it. Run:
+Run:
 
 ```bash
 python scripts/code_stats.py
 ```
 
-The script reports physical and non-blank lines for `src/poyto/**/*.py`, separates core modules from `resources/`, reports tests, and prints each source file. CI runs the same measurement on Python 3.14.
-
-The detailed LOC snapshot and feature-to-code map live in [docs/capabilities.md](docs/capabilities.md).
+It reports physical and non-blank lines for `src/poyto/**/*.py`, separates core modules from `resources/`, reports tests, and prints each source file. CI runs the same measurement on Python 3.14.
 
 ## What changed in 0.2
 
@@ -71,58 +69,20 @@ pip install -e '.[dev]'
 
 ## Quick start
 
-Literal token:
-
 ```python
 from poyto import PoytoClient
 
 with PoytoClient(token="YOUR_ACCESS_TOKEN") as client:
     print(client.profile())
-```
-
-Token file:
-
-```python
-from pathlib import Path
-from poyto import PoytoClient
-
-with PoytoClient(token=Path("token.txt")) as client:
     print(client.balances())
 ```
 
-Supported token-file formats:
-
-```text
-ACCESS_TOKEN
-REFRESH_TOKEN
-```
-
-```dotenv
-POYTO_TOKEN=...
-POYTO_REFRESH_TOKEN=...
-```
-
-```json
-{
-  "access_token": "...",
-  "refresh_token": "...",
-  "expires_at": 1790000000
-}
-```
-
-You can also use `token_file="token.txt"`, `token="@token.txt"`, or `token="file:token.txt"`.
+Token files may be plaintext, dotenv, or JSON. You can also use `token_file="token.txt"`, `token="@token.txt"`, or `token="file:token.txt"`.
 
 ## Persistent login
 
-Save a token once:
-
 ```powershell
 poyto login
-```
-
-Then use normal commands without passing a token:
-
-```powershell
 poyto profile
 poyto balances
 poyto markets --limit 20
@@ -140,22 +100,7 @@ Other:   $XDG_STATE_HOME/poyto/session.json
 
 ## Environment variables
 
-The simplest setup is:
-
-```powershell
-$env:POYTO_TOKEN = "..."
-$env:POYTO_REFRESH_TOKEN = "..."
-poyto profile
-```
-
-or:
-
-```powershell
-$env:POYTO_TOKEN_FILE = "$HOME\\poyto-token.env"
-poyto balances
-```
-
-`PoytoClient()` reads the same environment automatically. Canonical variables include `POYTO_TOKEN`, `POYTO_ACCESS_TOKEN`, `POYTO_REFRESH_TOKEN`, `POYTO_TOKEN_FILE`, `POYTO_SESSION_FILE`, `POYTO_AUTO_REFRESH`, `POYTO_API_BASE`, `POYTO_AUTH_BASE`, `POYTO_TIMEOUT`, and device metadata variables. Historical `POYP_*` aliases remain supported. See [configuration](docs/configuration.md).
+Common variables include `POYTO_TOKEN`, `POYTO_ACCESS_TOKEN`, `POYTO_REFRESH_TOKEN`, `POYTO_TOKEN_FILE`, `POYTO_SESSION_FILE`, `POYTO_AUTO_REFRESH`, `POYTO_API_BASE`, `POYTO_AUTH_BASE`, `POYTO_TIMEOUT`, and device metadata variables. Historical `POYP_*` aliases remain supported. See [configuration](docs/configuration.md).
 
 ## Refresh tokens
 
@@ -174,14 +119,6 @@ with PoytoClient() as client:
     print(client.markets(limit=20))
     print(client.market("MARKET_ID"))
     print(client.asset_price("BTC"))
-```
-
-Automatic pagination:
-
-```python
-with PoytoClient() as client:
-    for market in client.iter_markets(limit=100):
-        print(market["id"], market["title"])
 ```
 
 Observed write operations include buy/sell, comments, likes, follow/unfollow, referral-code update, notification read-all, and ad-reward claim. The CLI requires `--yes` for state-changing commands.
@@ -204,16 +141,16 @@ Resource methods live under `src/poyto/resources/`, transport/auth exchange unde
 
 ## Documentation
 
-- [Capability inventory and code-size accounting](docs/capabilities.md)
+- [Capability inventory and LOC breakdown](docs/capabilities.md)
 - [Known gaps and unverified behavior](docs/known-gaps.md)
-- [Configuration and environment variables](docs/configuration.md)
-- [Authentication and token loading](docs/authentication.md)
+- [Observed endpoints](docs/endpoints.md)
+- [Configuration](docs/configuration.md)
+- [Authentication](docs/authentication.md)
 - [Refresh tokens](docs/refresh-tokens.md)
 - [Ad rewards](docs/ad-rewards.md)
 - [Architecture](docs/architecture.md)
 - [Python API](docs/python-api.md)
 - [CLI reference](docs/cli.md)
-- [Observed endpoints](docs/endpoints.md)
 - [Reverse-engineering notes](docs/reverse-engineering.md)
 - [HAR diff notes](docs/har-diff-2026-09-08.md)
 - [AI/contributor guide](AGENTS.md)
