@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import time
 
 import httpx
 
 from poyto import AuthSession, PoytoClient, SessionStore
+from poyto.token_loader import load_token_file, parse_token_text
 
 
 def test_session_store_round_trip(tmp_path):
@@ -25,6 +27,58 @@ def test_session_store_round_trip(tmp_path):
     assert loaded.user == {"id": "user"}
     store.clear()
     assert store.load() is None
+
+
+def test_plaintext_token_parser():
+    session = parse_token_text("access-token\nrefresh-token\n")
+    assert session.access_token == "access-token"
+    assert session.refresh_token == "refresh-token"
+
+
+def test_env_style_token_parser():
+    session = parse_token_text(
+        "POYP_ACCESS_TOKEN='access-token'\nPOYP_REFRESH_TOKEN=refresh-token\n"
+    )
+    assert session.access_token == "access-token"
+    assert session.refresh_token == "refresh-token"
+
+
+def test_json_token_parser():
+    session = parse_token_text(
+        json.dumps(
+            {
+                "access_token": "access-token",
+                "refresh_token": "refresh-token",
+                "expires_at": 123,
+            }
+        )
+    )
+    assert session.access_token == "access-token"
+    assert session.refresh_token == "refresh-token"
+    assert session.expires_at == 123
+
+
+def test_token_file_loader(tmp_path):
+    path = tmp_path / "token.txt"
+    path.write_text("access-from-file\nrefresh-from-file\n", encoding="utf-8")
+    session = load_token_file(path)
+    assert session.access_token == "access-from-file"
+    assert session.refresh_token == "refresh-from-file"
+
+
+def test_client_token_literal():
+    with PoytoClient(token="literal-token", auto_load_session=False, save_session=False) as client:
+        assert client.session is not None
+        assert client.session.access_token == "literal-token"
+
+
+def test_client_token_path(tmp_path):
+    path = tmp_path / "token.txt"
+    path.write_text("file-token\nfile-refresh\n", encoding="utf-8")
+    with PoytoClient(token=path, auto_load_session=False, save_session=False) as client:
+        assert client.session is not None
+        assert client.session.access_token == "file-token"
+        assert client.session.refresh_token == "file-refresh"
 
 
 def test_client_auto_loads_saved_session(tmp_path):
