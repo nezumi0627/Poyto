@@ -135,10 +135,10 @@ def _ai_compare(markets: list[dict[str, Any]], *, model: str, base_url: str, api
     )
     user = {
         "task": (
-            "Analyze all 10 markets, compare the available positions, and rank the best three candidates. "
-            "For each candidate return market_id, position_index, confidence from 0 to 1, expected_edge from -1 to 1, "
-            "and a concise reason. Select three distinct markets. expected_edge is your estimated advantage over the "
-            "market-implied view, not a guaranteed return."
+            "Analyze all supplied ending-soon markets, compare the available positions, and rank the best three "
+            "candidates. For each candidate return market_id, position_index, confidence from 0 to 1, expected_edge "
+            "from -1 to 1, and a concise reason. Select three distinct markets. expected_edge is your estimated "
+            "advantage over the market-implied view, not a guaranteed return."
         ),
         "required_json_shape": {
             "picks": [
@@ -223,7 +223,7 @@ def _normalize_picks(
     if len(result) != 3:
         raise RuntimeError(
             "AI did not produce three picks that met the configured thresholds. "
-            "Lower --min-confidence/--min-edge or inspect the 10 candidates."
+            "Lower --min-confidence/--min-edge or inspect the candidates instead of forcing trades."
         )
     return result
 
@@ -285,7 +285,7 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Actually place the three trades. Without this flag the example is analysis-only.",
     )
-    parser.add_argument("--ai-model", default=os.getenv("POYTO_AI_MODEL", "gpt-5.6"))
+    parser.add_argument("--ai-model", default=os.getenv("POYTO_AI_MODEL"))
     parser.add_argument(
         "--ai-base-url",
         default=os.getenv("POYTO_AI_BASE_URL", "https://api.openai.com/v1"),
@@ -297,6 +297,9 @@ def _parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = _parser().parse_args()
+    if not args.ai_model:
+        print("Set POYTO_AI_MODEL or pass --ai-model.", file=sys.stderr)
+        return 2
     if not args.ai_api_key:
         print("Set POYTO_AI_API_KEY or pass --ai-api-key.", file=sys.stderr)
         return 2
@@ -322,7 +325,6 @@ def main() -> int:
         if len(items) < 3:
             raise RuntimeError(f"Expected at least 3 open markets, got {len(items)}")
 
-        # Fetch detail payloads so the AI sees the richest available public market data.
         markets: list[dict[str, Any]] = []
         for item in items[:10]:
             market_id = _market_id(item)
@@ -363,14 +365,14 @@ def main() -> int:
 
         print("\nPlacing 3 trades...")
         for pick in picks:
-            response = client.buy(
+            client.buy(
                 market_id=pick.market_id,
                 position_index=pick.position_index,
                 point_amount=pick.point_amount,
                 order_surface="home_card",
                 entry_point="home_feed",
             )
-            print(f"Placed | {pick.title} | response={json.dumps(response, ensure_ascii=False)}")
+            print(f"Placed | {pick.title} | position={pick.position_index} | points={pick.point_amount:g}")
 
         _wait_for_results(client, picks, poll_seconds=args.poll_seconds)
     return 0
