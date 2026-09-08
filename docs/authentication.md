@@ -4,7 +4,7 @@ Poyto loads and persists POYP sessions inside the library, so callers do not nee
 
 ## `token=`
 
-The simplest Python form is now:
+The simplest Python form is:
 
 ```python
 from poyto import PoytoClient
@@ -19,17 +19,10 @@ print(client.profile())
 from pathlib import Path
 from poyto import PoytoClient
 
-# Path objects always mean a file.
 client = PoytoClient(token=Path("token.txt"))
-
-# Existing string paths are also recognized.
 client = PoytoClient(token="token.txt")
-
-# Explicit file syntax is available when desired.
 client = PoytoClient(token="@token.txt")
 client = PoytoClient(token="file:token.txt")
-
-# Or use the unambiguous argument.
 client = PoytoClient(token_file="token.txt")
 ```
 
@@ -77,8 +70,6 @@ When expiry metadata is present, automatic pre-expiry refresh can use it.
 
 ## Persist once, use automatically
 
-You can save a token once from Python:
-
 ```python
 from poyto import PoytoClient
 
@@ -90,7 +81,6 @@ A file can be persisted the same way:
 
 ```python
 client.login("@token.txt")
-# or
 client.login_file("token.txt")
 ```
 
@@ -132,9 +122,9 @@ An explicitly supplied `refresh_token=` can accompany the selected source.
 
 ## Apple exchange
 
-The observed POYP flow is:
+The established POYP flow is:
 
-1. Sign in with Apple produces an `id_token` and, in the observed capture, an Apple access token and nonce.
+1. Sign in with Apple produces an `id_token`, Apple access token, and nonce as required by the provider flow.
 2. The app exchanges those values with `https://auth.poyp.app/auth/v1/token?grant_type=id_token`.
 3. The response contains a Supabase access token and usually a refresh token.
 4. POYP API requests use the resulting bearer token.
@@ -167,7 +157,7 @@ Manual refresh still works:
 client.refresh()
 ```
 
-Refresh-token rotation and the distinction between observed POYP behavior and standard Supabase behavior are documented in [Refresh tokens](refresh-tokens.md).
+Refresh-token rotation and the distinction between established POYP behavior and standard Supabase behavior are documented in [Refresh tokens](refresh-tokens.md).
 
 ## Session location
 
@@ -185,10 +175,10 @@ On POSIX systems Poyto attempts to set the session file to mode `0600`.
 poyto logout
 ```
 
-This performs the observed server logout when a session is available and clears Poyto's local saved session. To only remove the local file:
+This performs the supported server logout when a session is available and clears Poyto's local saved session. To only remove the local file:
 
 ```powershell
 poyto logout --local-only
 ```
 
-Never commit access tokens, refresh tokens, Apple identity tokens, cookies, HAR files, or stable device identifiers.
+Never commit access tokens, refresh tokens, Apple identity tokens, cookies, private traffic exports, or stable device identifiers.
