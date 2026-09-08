@@ -5,6 +5,15 @@ Unofficial typed Python client and CLI for **POYP**.
 > [!IMPORTANT]
 > Poyto is an independent project and is not affiliated with, endorsed by, sponsored by, or otherwise connected to POYP. The service interface is undocumented and may change without notice. Use the project only with accounts, credentials, devices, and data you are authorized to access. See [DISCLAIMER.md](DISCLAIMER.md).
 
+## Try POYP
+
+If you are new to POYP, you can use the maintainer's referral link/code below. Under POYP's current referral offer, a successful eligible registration is shown as awarding **400 points to both the new user and the referrer**. Referral rewards and eligibility are controlled by POYP and may change.
+
+- Referral link: https://poyp.go.link/fjwo2?referral_code=S-0627
+- Invite code: `S-0627`
+
+> This is a referral link: the maintainer may receive 400 points when an eligible new user registers through it.
+
 ## What Poyto can do
 
 Poyto currently covers the major supported POYP HTTP surfaces:
@@ -19,6 +28,7 @@ Poyto currently covers the major supported POYP HTTP surfaces:
 - ad-reward claim API, including typed successful response fields
 - Python API plus CLI, with `--yes` confirmation for state-changing CLI commands
 - token files, environment configuration, masked session inspection, typed package metadata, and network-free regression tests
+- optional MCP server and reusable agent skill for conversational AI clients and scheduled automation hosts
 
 Current implementation snapshot: **21 Python source files / 1,718 physical lines / 1,443 non-blank lines**, plus **412 test lines**. See [Capability inventory](docs/capabilities.md) for the per-file breakdown and evidence level of every major feature.
 
@@ -66,6 +76,15 @@ cd Poyto
 python -m venv .venv
 pip install -e '.[dev]'
 ```
+
+For conversational AI / MCP support:
+
+```bash
+pip install -e '.[agent]'
+poyto-mcp
+```
+
+See [AI agents, MCP, and scheduled runs](docs/agents.md) and the reusable [`skills/poyto/SKILL.md`](skills/poyto/SKILL.md).
 
 ## Quick start
 
@@ -134,10 +153,10 @@ poyto claim-ad-reward --yes
 ## Architecture
 
 ```text
-config -> credentials/session -> HTTP transport -> resources -> high-level client -> CLI
+config -> credentials/session -> HTTP transport -> resources -> high-level client -> CLI/MCP
 ```
 
-Resource methods live under `src/poyto/resources/`, transport/auth exchange under `_http.py`, lifecycle policy under `auto.py`, and CLI parsing/execution in separate modules. See [architecture](docs/architecture.md).
+Resource methods live under `src/poyto/resources/`, transport/auth exchange under `_http.py`, lifecycle policy under `auto.py`, CLI parsing/execution in separate modules, and the optional conversational-agent bridge in `mcp_server.py`. See [architecture](docs/architecture.md).
 
 ## Documentation
 
@@ -151,7 +170,9 @@ Resource methods live under `src/poyto/resources/`, transport/auth exchange unde
 - [Architecture](docs/architecture.md)
 - [Python API](docs/python-api.md)
 - [CLI reference](docs/cli.md)
+- [AI agents, MCP, and scheduled runs](docs/agents.md)
 - [Reverse-engineering notes](docs/reverse-engineering.md)
+- [Poyto agent skill](skills/poyto/SKILL.md)
 - [AI/contributor guide](AGENTS.md)
 - [Disclaimer](DISCLAIMER.md)
 - [Security](SECURITY.md)
