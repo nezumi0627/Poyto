@@ -1,82 +1,92 @@
 # Capability inventory
 
-This document is the canonical inventory of what Poyto can do today and how strong the evidence is for each behavior.
+This is the canonical inventory of what Poyto can do today, how much code implements it, and how strong the evidence is.
 
-Poyto is reconstructed from authorized POYP traffic. A method existing in the codebase does **not** automatically mean the corresponding server behavior is fully proven. Every capability below is therefore tagged by evidence level.
+Poyto is reconstructed from authorized POYP traffic. A method existing in the codebase does **not** automatically mean the server behavior is fully proven.
 
 ## Evidence levels
 
 | Level | Meaning |
 | --- | --- |
-| **Observed** | The request shape was directly present in supplied POYP HAR traffic. |
+| **Observed** | The real request shape was present in supplied POYP HAR traffic. |
 | **Observed success** | The request and a successful server response were both captured. |
-| **Implemented / inferred** | Poyto implements the behavior, but the exact request was not directly present in the supplied POYP HARs. |
-| **Unknown** | No sufficient capture or independent documentation exists. Poyto must not invent behavior. |
+| **Implemented / inferred** | Poyto implements the behavior, but the exact POYP request was not directly captured. |
+| **Unknown** | No sufficient capture or independent documentation exists. Do not invent behavior. |
 
-## Code-size snapshot
+## Exact code-size snapshot
 
-The source LOC snapshot is computed from `src/poyto/**/*.py` using `python scripts/code_stats.py`.
+Measured by CI with `python scripts/code_stats.py` on the PR tree:
 
-The script reports both physical lines and non-blank lines and also separates core code, resource wrappers, and tests. The CI job runs the same script on Python 3.14 so the documented measurement is reproducible instead of being manually estimated.
+| Area | Files | Physical lines | Non-blank lines |
+| --- | ---: | ---: | ---: |
+| Core `src/poyto/*.py` | 14 | 1,274 | 1,081 |
+| Resource wrappers `src/poyto/resources/*.py` | 7 | 444 | 362 |
+| **Source total** | **21** | **1,718** | **1,443** |
+| Tests | 4 | 412 | 330 |
 
-> The numeric snapshot is updated from CI output when this document changes. If the tree has moved since the last snapshot, run `python scripts/code_stats.py` and treat its output as authoritative.
+Per-source-file snapshot:
+
+| File | Lines | Non-blank | Main responsibility |
+| --- | ---: | ---: | --- |
+| `src/poyto/_http.py` | 195 | 171 | HTTP transport, headers, auth exchange/refresh/logout |
+| `src/poyto/cli_dispatch.py` | 174 | 161 | CLI command execution |
+| `src/poyto/auto.py` | 170 | 152 | credential loading, persistence, auto-refresh, 401 retry |
+| `src/poyto/token_loader.py` | 163 | 136 | token/text/file parsing |
+| `src/poyto/resources/social.py` | 129 | 107 | users, follows, comments/social reads/writes |
+| `src/poyto/cli_parser.py` | 116 | 92 | CLI arguments and command definitions |
+| `src/poyto/resources/account.py` | 106 | 79 | account, balances, notifications, referral, ad reward |
+| `src/poyto/config.py` | 86 | 71 | environment/settings/device configuration |
+| `src/poyto/resources/markets.py` | 74 | 61 | markets, positions, activity, charts, prices |
+| `src/poyto/models.py` | 68 | 57 | observed typed structures |
+| `src/poyto/session_store.py` | 66 | 53 | persistent local session storage |
+| `src/poyto/_resource.py` | 65 | 53 | shared resource helpers/pagination helpers |
+| `src/poyto/resources/trades.py` | 60 | 55 | buy/sell request wrappers |
+| `src/poyto/token_info.py` | 43 | 32 | secret-safe token/session inspection |
+| `src/poyto/resources/events.py` | 35 | 30 | event/timeline/ranking/chat wrappers |
+| `src/poyto/__init__.py` | 35 | 32 | public exports and compatibility aliases |
+| `src/poyto/exceptions.py` | 34 | 24 | normalized exceptions |
+| `src/poyto/client.py` | 31 | 25 | low-level client composition |
+| `src/poyto/cli.py` | 28 | 22 | CLI entrypoint/output |
+| `src/poyto/resources/discovery.py` | 25 | 16 | home/search/discovery wrappers |
+| `src/poyto/resources/__init__.py` | 15 | 14 | resource exports |
+
+These values are a snapshot, not a marketing metric. `python scripts/code_stats.py` is authoritative after the tree changes, and CI runs it on Python 3.14.
 
 ## Authentication and session lifecycle
 
 | Capability | Public surface | Evidence |
 | --- | --- | --- |
-| Use an existing POYP access token | `PoytoClient(token=...)`, `POYTO_TOKEN` | Implemented; authenticated HAR requests directly observed |
-| Read token from plaintext / dotenv / JSON | token loader | Local library feature |
-| Save and reload a session | `poyto login`, `SessionStore` | Local library feature |
-| Apple id-token login | `login_with_apple()`, `poyto login-apple` | **Observed success**: `POST /auth/v1/token?grant_type=id_token` |
-| Store access + refresh pair returned by login | `AuthSession`, `SessionStore` | **Observed success** for issuance |
-| Refresh shortly before expiry | automatic client lifecycle | **Implemented / inferred** |
-| Refresh after one authenticated HTTP 401 and retry once | automatic client lifecycle | Local policy; refresh exchange itself inferred |
-| Refresh-token rotation persistence | automatic client lifecycle | **Implemented / inferred** from standard Supabase/GoTrue behavior |
-| Remote logout | `logout(local_only=False)` | **Observed**: `POST /auth/v1/logout?scope=global` |
-| Local-only logout | `logout(local_only=True)` | Local library feature |
-| Inspect session metadata without printing secrets | `session_info()`, `token_kind()` | Local library feature |
+| Use existing access token | `PoytoClient(token=...)`, env/token file | Implemented; authenticated traffic observed |
+| Plaintext/dotenv/JSON token files | token loader | Local feature |
+| Save/reload session | `poyto login`, `SessionStore` | Local feature |
+| Apple id-token login | `login_with_apple()`, `login-apple` | **Observed success** |
+| Receive/store access + refresh pair | `AuthSession`, `SessionStore` | **Observed success** for issuance |
+| Refresh shortly before expiry | automatic lifecycle | **Implemented / inferred** |
+| One refresh + retry after authenticated 401 | automatic lifecycle | Local policy; exchange inferred |
+| Persist rotated refresh pair | automatic lifecycle | **Implemented / inferred** |
+| Remote global logout | `logout(local_only=False)` | **Observed** |
+| Local-only logout | `logout(local_only=True)` | Local feature |
+| Inspect token/session shape without leaking secrets | `session_info()`, `token_kind()` | Local feature |
 
-Important limitation: the supplied POYP HARs show refresh-token **issuance**, but no POYP `grant_type=refresh_token` exchange was captured. See `refresh-tokens.md`.
+Critical boundary: refresh-token **issuance** is directly captured, but no POYP `grant_type=refresh_token` exchange appears in supplied HARs. The refresh request follows standard Supabase/GoTrue behavior and remains inferred.
 
-## Account and balances
+## Account, balances and notifications
 
-The following request families are implemented and directly observed unless marked otherwise:
+Implemented wrappers cover observed traffic for profile, balances, portfolio, portfolio history, balance history, balance transactions, expiring balances, missions, login streak, campaign results, provider rewards, loss-gacha status, notifications, unread count, read-all, push-token registration, blocked users, referral data and walking-challenge status.
 
-- profile
-- balances
-- portfolio
-- portfolio history
-- balance history
-- balance transactions
-- expiring balances
-- missions
-- login streak
-- campaign results
-- provider rewards
-- loss-gacha status
-- notifications
-- unread notification count
-- mark all notifications read
-- push-token registration
-- blocked users
-- walking-challenge status
-
-Python surfaces live primarily in `resources/account.py`; CLI exposes the common read operations plus selected writes.
+Primary implementation footprint: `resources/account.py` (106 lines), plus transport/session infrastructure.
 
 ## Ad rewards
 
-`claim_ad_reward(source="watch_ad")` is a first-class library operation.
+`claim_ad_reward(source="watch_ad")` is a first-class operation.
 
-Directly observed request:
+Observed request:
 
 ```text
 POST /api/me/ad-rewards/claim?source=watch_ad
 ```
 
-No JSON body was present in the captured request.
-
-A newer supplied HAR captured **HTTP 200 success** with these response fields:
+No JSON body was present. A newer HAR captured **HTTP 200 success** with:
 
 - `earnId`
 - `rewardPoints`
@@ -84,147 +94,64 @@ A newer supplied HAR captured **HTTP 200 success** with these response fields:
 - `dailyViewCount`
 - `dailyViewLimit`
 
-`AdRewardClaimResponse` types those observed fields. One capture returned 5 reward points and a daily count of 2/5; those values are observations, not universal constants.
-
-CLI surface:
-
-```text
-poyto claim-ad-reward --yes
-```
-
-Poyto does not fabricate ad-completion callbacks, SDK events, reward proofs, or eligibility state.
-
-## Referral
-
-Implemented and observed:
-
-- read referral code
-- read referral stats
-- check referral-code availability
-- update referral code
-
-The update operation is state-changing and CLI use requires `--yes`.
+`AdRewardClaimResponse` types those observed fields. One capture returned 5 points and a daily count of 2/5; those values are observations, not universal constants. Poyto does not fabricate ad-SDK completion callbacks, proof, eligibility state, or anti-abuse state.
 
 ## Markets and pricing
 
-Implemented and observed:
+Implemented and observed: list markets, market detail, related markets, screen auxiliary data, current-user positions, market activity, multi-market charts, asset prices, and library-side pagination helpers.
 
-- list markets with feed/phase/sort/limit parameters
-- read one market
-- related markets
-- screen auxiliary data
-- current-user positions for a market
-- market activity
-- multi-market chart data
-- asset price route (`/api/prices/{asset}`)
-- iterator helper for market pagination
-
-The helper pagination policy is library-side convenience; server cursor behavior is only assumed where matching cursor fields were observed.
+Primary implementation: `resources/markets.py` (74 lines).
 
 ## Trading
 
-Implemented and observed:
+Implemented and observed: buy and sell.
 
-- buy
-- sell
+Primary implementation: `resources/trades.py` (60 lines), with shared transport/session/device handling elsewhere.
 
-Observed buy fields include `marketId`, `positionIndex`, `pointAmount`, `orderSurface`, `requestId`, `displayPreset`, `entryPoint`, `sessionId`, and `deviceId`.
+Observed buy fields include `marketId`, `positionIndex`, `pointAmount`, `orderSurface`, `requestId`, `displayPreset`, `entryPoint`, `sessionId`, `deviceId`.
 
-Observed sell fields include `marketId`, `positionIndex`, `shares`, `orderSurface`, `entryPoint`, `sessionId`, and `deviceId`.
+Observed sell fields include `marketId`, `positionIndex`, `shares`, `orderSurface`, `entryPoint`, `sessionId`, `deviceId`.
 
-CLI buy/sell operations require `--yes`.
+Poyto does not claim complete knowledge of settlement, pricing formulas, slippage, fees, idempotency, anti-abuse, or every error response.
 
-Poyto does not claim to know undocumented server-side validation, market settlement rules, slippage behavior, pricing formulas, anti-abuse rules, or idempotency semantics beyond what captures show.
+## Comments and social
 
-## Comments and social actions
+Implemented/observed surfaces include moderation status, comment/reply creation, edit, delete, like, follow/unfollow, user profile, follow status, team follows, followers/following, user balance history and user portfolio history.
 
-Implemented and observed:
+Primary implementation: `resources/social.py` (129 lines).
 
-- comment moderation status
-- create a market comment
-- create a reply using `parentCommentId`
-- edit a comment
-- delete a comment
-- like a comment
-- follow a user
-- unfollow a user
-- user profile
-- follow status
-- team follows
-- followers
-- following
-- user balance history
-- user portfolio history
+Unlike-comment was not observed and is intentionally not invented.
 
-Not observed: unlike-comment request. Poyto therefore does not invent an unlike endpoint.
+## Discovery, rankings, timeline, chat reads and events
 
-## Discovery and home
+Observed wrappers cover home sections/tabs, search sections, interest subcategories, campaign banners, onboarding, global-chat messages, leaderboards, recent trades/comments, rising markets, followed-trades timeline and generic event submission.
 
-Implemented and observed:
+Primary implementation: `resources/discovery.py` (25 lines) + `resources/events.py` (35 lines).
 
-- home sections
-- home tabs
-- search sections
-- interest subcategories
-- campaign banners
-- onboarding data
+This does not imply realtime socket support, global-chat sending, moderation controls, or a fully known event schema.
 
-## Timeline, rankings, chat and events
+## Referral
 
-Implemented request wrappers exist for captured traffic covering:
+Implemented and observed: read referral code/stats, check code availability, update referral code. CLI writes require `--yes`.
 
-- global-chat messages
-- trader leaderboard
-- recent trades
-- recent comments
-- rising markets
-- followed-trades timeline
-- generic event submission
+## CLI
 
-These are HTTP wrappers around observed routes. Poyto does not claim realtime socket support, message sending support, moderation-control support, or an official event schema unless separately captured.
+Common commands include authentication (`login`, `login-apple`, `logout`, `refresh`), account reads, markets, market detail, activity, charts, prices, transactions, buy/sell, comments, follow/unfollow, referral operations, notification read-all, ad-reward claim, user inspection and raw requests.
 
-## Raw HTTP escape hatch
+CLI implementation footprint: `cli_parser.py` 116 lines + `cli_dispatch.py` 174 + `cli.py` 28 = **318 physical lines**.
 
-`PoytoClient.request(...)` and the CLI `raw` command can call an explicit path supplied by the caller. This is an escape hatch, not evidence that arbitrary POYP endpoints are supported.
-
-The raw API intentionally does not turn guesses into documented capabilities.
-
-## CLI capabilities
-
-Common commands include:
-
-- authentication: `login`, `login-apple`, `logout`, `refresh`
-- account: `profile`, `balances`, `portfolio`, `missions`, `streak`, `notifications`, `walking`
-- discovery: `home`
-- referral: `referral`, `referral-available`, `set-referral`
-- markets: `markets`, `market`, `activity`, `charts`, `price`
-- transactions: `transactions`, `buy`, `sell`
-- social: `comment`, `edit-comment`, `delete-comment`, `like-comment`, `follow`, `unfollow`, `user`
-- account writes: `read-all-notifications`, `claim-ad-reward`
-- debugging/advanced: `raw`
-
-State-changing CLI commands require `--yes` where implemented by the parser/dispatcher.
+State-changing commands require explicit `--yes` where defined.
 
 ## Local reliability features
 
-Poyto also provides behavior that is independent of undocumented POYP semantics:
+Poyto additionally implements credential-source priority, environment configuration, token-file parsing, configurable hosts/timeouts, reusable device metadata headers, context-manager support, `py.typed`, normalized API exceptions, secret-masked session inspection, network-free MockTransport tests, Ruff, mypy, package build and Python 3.10–3.14 CI.
 
-- explicit credential-source priority
-- environment-variable configuration
-- token-file parsing
-- configurable API/auth base URLs
-- configurable timeout
-- reusable device metadata headers
-- context-manager support
-- typed package marker (`py.typed`)
-- normalized API exceptions
-- secret-masked session inspection
-- pytest mock transports for request-shape regression tests
-- Ruff, mypy and package-build CI
-- Python 3.10 through 3.14 CI matrix
+## Raw HTTP escape hatch
 
-## What “supported” means here
+`PoytoClient.request(...)` and CLI `raw` can call an explicit caller-supplied route. That is an escape hatch, **not** evidence that arbitrary endpoints are supported.
 
-A supported method means Poyto has a maintained client surface and tests for the request shape or local behavior. It does not mean POYP guarantees the endpoint, that every possible response is modeled, or that the route will remain stable.
+## What supported means
 
-For the inverse list—things Poyto deliberately does not claim because evidence is absent—see `known-gaps.md`.
+“Supported” means Poyto has a maintained surface and suitable tests for the request shape/local behavior. It does not mean POYP guarantees the endpoint or that all responses and server rules are known.
+
+For everything that lacks enough evidence, see [`known-gaps.md`](known-gaps.md). For the directly observed route inventory, see [`endpoints.md`](endpoints.md).
