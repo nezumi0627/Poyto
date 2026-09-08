@@ -1,0 +1,271 @@
+# Known gaps and unverified behavior
+
+This file is the canonical **do-not-claim** list for Poyto.
+
+If a behavior is listed here, the project either has no sufficient POYP capture for it, has only partial evidence, or intentionally does not implement it. New evidence should move an item out of this file only after the request/response shape is captured or independently documented and covered by tests.
+
+## Authentication gaps
+
+### Refresh-token exchange is not directly captured
+
+Poyto implements the standard Supabase/GoTrue-style refresh exchange because the observed auth backend is Supabase-based and issued a refresh token. However, none of the supplied POYP HARs contained a POYP request using:
+
+```text
+grant_type=refresh_token
+```
+
+Therefore the exact POYP refresh behavior remains **inferred**, not directly observed.
+
+Unknown details include:
+
+- whether POYP changes the standard request shape
+- exact refresh-token reuse/rotation behavior in this project
+- project-specific refresh-token invalidation policy
+- server behavior after simultaneous refreshes
+- exact error bodies for expired/revoked refresh tokens
+
+### Apple login prerequisites are only partially generalized
+
+A successful Apple-to-POYP id-token exchange was observed. That does not prove every possible Apple login variant, nonce policy, account state, or migration path.
+
+Unknown or unverified:
+
+- every Apple authorization error response
+- first-ever signup edge cases
+- account deletion/recreation behavior
+- account-linking behavior
+- non-Apple authentication providers
+- MFA or recovery flows
+
+## Ad reward gaps
+
+A successful `watch_ad` claim was captured, including an HTTP 200 response. What remains unknown is the server-side eligibility logic.
+
+Poyto does **not** claim knowledge of:
+
+- how POYP proves an advertisement was legitimately completed
+- whether proof is held server-side, in an SDK callback, in transient session state, or elsewhere
+- cooldown timing
+- whether the observed 5-point reward is fixed
+- whether the observed daily limit of 5 is fixed globally
+- regional/account/experiment-specific reward values
+- failure response schemas for early, duplicate, ineligible, expired, or rate-limited claims
+- whether multiple ad providers use different `source` values
+- anti-abuse or fraud-detection rules
+
+Poyto does not fabricate Google Mobile Ads callbacks, rewarded-video completion events, or third-party ad-network proof.
+
+## Trading gaps
+
+Buy and sell request shapes were observed, but the project does not have enough evidence to claim complete knowledge of the trading engine.
+
+Unknown or unverified:
+
+- price-formation formula
+- spread/slippage semantics
+- exact share/point rounding rules
+- minimum and maximum order sizes in every market state
+- idempotency guarantees for `requestId`
+- duplicate-order handling
+- settlement implementation
+- cancellation/undo support
+- limit orders
+- partial fills
+- market-maker behavior
+- fee rules
+- every trade error code/body
+- behavior during suspended, resolved, or rapidly transitioning markets
+
+Do not add guessed trading endpoints or formulas to the public client.
+
+## Market gaps
+
+Observed read routes do not imply complete market administration support.
+
+No sufficient evidence currently backs client methods for:
+
+- creating markets
+- editing markets
+- deleting markets
+- resolving markets
+- cancelling markets
+- administrative moderation
+- changing market outcomes
+- privileged/internal market controls
+
+The exact semantics of every `feed`, `phase`, `sort`, chart timeframe, and auxiliary field are also not fully documented.
+
+## Comment and social gaps
+
+Not observed or insufficiently supported:
+
+- unlike-comment endpoint
+- comment reactions other than the captured like action
+- editing/deleting another user's content
+- reporting users/comments
+- blocking/unblocking writes
+- direct/private messaging
+- posting to global chat
+- realtime chat/socket protocol
+- moderation/admin actions
+- notification preference writes
+
+`GET /api/me/blocked-users` was observed; a corresponding block/unblock write route has not been proven by supplied captures.
+
+## Referral gaps
+
+Observed referral reads and referral-code update do not establish:
+
+- all code validation rules
+- reward calculation rules
+- referral payout schedule
+- anti-abuse rules
+- retroactive code assignment behavior
+- administrator/referral campaign controls
+
+## Mission, streak, campaign and gacha gaps
+
+Read/status endpoints exist, but there is insufficient evidence for arbitrary mutation endpoints.
+
+Do not assume methods for:
+
+- completing a mission manually
+- forcing a login streak
+- claiming campaign rewards unless a request is captured
+- triggering loss gacha
+- changing campaign result state
+
+Server responses may themselves encode claimability; that is not equivalent to an observed write route.
+
+## Notification gaps
+
+Observed:
+
+- notification list
+- unread count
+- read-all
+- push-token registration
+
+Not sufficiently evidenced:
+
+- single-notification read endpoint
+- deleting notifications
+- notification preferences
+- push-token deletion/revocation route
+- platform-specific push payload schema
+
+## Walking challenge gaps
+
+Only status retrieval is sufficiently established in the current capture set.
+
+Unknown:
+
+- step submission route
+- health-data synchronization
+- reward-claim route
+- anti-cheat rules
+- reset schedule
+
+## Discovery/search gaps
+
+Captured discovery routes do not prove:
+
+- arbitrary full-text search request parameters
+- write/customization endpoints for home tabs/sections
+- interest subscription writes
+- every onboarding mutation
+
+## Event telemetry gaps
+
+`POST /api/events` was observed, but a generic wrapper does not mean the event schema is fully understood.
+
+Unknown:
+
+- complete event-name catalog
+- required properties for every event
+- whether events influence rewards, ranking, personalization, or anti-abuse systems
+- retry/idempotency behavior
+
+Do not invent event payloads and present them as official.
+
+## Provider rewards gaps
+
+The provider-rewards read route was observed with a source such as `skyflag`, but this does not establish integration APIs for arbitrary providers.
+
+Unknown:
+
+- supported provider list
+- provider callback endpoints
+- offer completion verification
+- payout rules
+- webhook/signature formats
+
+## Realtime and transport gaps
+
+Poyto currently focuses on captured HTTP APIs. There is no sufficiently backed implementation for:
+
+- WebSocket realtime feeds
+- server-sent events
+- push-notification decryption/processing
+- background mobile session behavior
+- official offline synchronization protocol
+
+## Device identity and headers
+
+Captured requests contained `x-poyp-*` device/application metadata. Poyto can send configurable equivalents, but does not claim to know which fields are mandatory in every context or how server-side device trust is calculated.
+
+Unknown:
+
+- device attestation
+- jailbreak/root detection interaction
+- device-ban logic
+- stable-device enrollment rules
+- exact OTA-generation semantics
+
+## Rate limits and anti-abuse
+
+No complete rate-limit specification has been captured.
+
+Poyto does not claim:
+
+- request-per-minute limits
+- per-route quotas
+- retry-after rules for every endpoint
+- anti-bot thresholds
+- fraud scoring behavior
+- account restriction rules
+
+## Response schemas
+
+Most public methods intentionally return server JSON rather than pretending every response is completely modeled. Only fields with enough value and evidence should receive dedicated TypedDict/dataclass models.
+
+A captured success response does not prove:
+
+- all optional fields
+- all error variants
+- future backwards compatibility
+- field availability across accounts/app versions/experiments
+
+## API stability
+
+POYP's API is undocumented and unofficial from Poyto's perspective. Routes, parameters, headers, response shapes, and authentication behavior can change at any time.
+
+There is no official compatibility guarantee.
+
+## HAR coverage limitations
+
+Current documentation is based mainly on user-supplied captures from 2026-09-08. A HAR is a snapshot of actions actually performed during that capture, not a complete enumeration of the app.
+
+Absence from a HAR means **unknown**, not necessarily nonexistent.
+
+## Rules for resolving a gap
+
+Before moving an item from unknown to supported:
+
+1. Capture or independently document the real request.
+2. Verify host, method, path, query, body, and relevant headers.
+3. When possible, capture a successful response and at least one failure case.
+4. Sanitize all tokens, user IDs, device IDs, cookies, Apple credentials, and other private values.
+5. Add an exact `httpx.MockTransport` regression test.
+6. Update `docs/endpoints.md`, `docs/capabilities.md`, and this file.
+7. Never fill evidence gaps with guessed routes merely because a naming pattern looks plausible.
