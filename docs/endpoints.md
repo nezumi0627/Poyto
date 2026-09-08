@@ -1,18 +1,18 @@
 # Observed endpoints
 
-This list is based on supplied POYP HAR captures from 2026-09-08. It is an observation log, not an official API specification. For implemented feature status see [capabilities](capabilities.md); for unsupported/unverified behavior see [known gaps](known-gaps.md).
+This list records POYP routes that are sufficiently established for Poyto. It is an observation log, not an official API specification. For implemented feature status see [capabilities](capabilities.md); for unsupported/unverified behavior see [known gaps](known-gaps.md).
 
 ## Authentication
 
-Directly observed:
+Directly established:
 
 - `POST /auth/v1/token?grant_type=id_token`
 - `POST /auth/v1/logout?scope=global`
 - `GET /auth/v1/user`
 
-The id-token exchange response included an access token and refresh token.
+The id-token exchange response includes an access token and refresh token.
 
-Implemented from standard Supabase/GoTrue behavior, **not directly present in the supplied POYP HARs**:
+Implemented from standard Supabase/GoTrue behavior, but still classified as inferred for POYP:
 
 - `POST /auth/v1/token?grant_type=refresh_token`
 
@@ -39,7 +39,7 @@ See [refresh tokens](refresh-tokens.md) for the distinction.
 - `POST /api/me/ad-rewards/claim`
 - `GET /api/me/blocked-users`
 
-The newer ad-reward capture includes an HTTP 200 response for `source=watch_ad`; see [ad rewards](ad-rewards.md).
+The ad-reward request has a known HTTP 200 success shape for `source=watch_ad`; see [ad rewards](ad-rewards.md).
 
 ## Referral
 
@@ -64,9 +64,9 @@ The newer ad-reward capture includes an HTTP 200 response for `source=watch_ad`;
 - `POST /api/trades/buy`
 - `POST /api/trades/sell`
 
-Observed buy fields: `marketId`, `positionIndex`, `pointAmount`, `orderSurface`, `requestId`, `displayPreset`, `entryPoint`, `sessionId`, `deviceId`.
+Supported buy fields: `marketId`, `positionIndex`, `pointAmount`, `orderSurface`, `requestId`, `displayPreset`, `entryPoint`, `sessionId`, `deviceId`.
 
-Observed sell fields: `marketId`, `positionIndex`, `shares`, `orderSurface`, `entryPoint`, `sessionId`, `deviceId`.
+Supported sell fields: `marketId`, `positionIndex`, `shares`, `orderSurface`, `entryPoint`, `sessionId`, `deviceId`.
 
 ## Comments
 
@@ -76,7 +76,7 @@ Observed sell fields: `marketId`, `positionIndex`, `shares`, `orderSurface`, `en
 - `DELETE /api/comments/{commentId}`
 - `POST /api/comments/{commentId}/likes`
 
-No unlike request was present in the supplied captures.
+Unlike-comment behavior is not established.
 
 ## Discovery
 
@@ -110,4 +110,4 @@ No unlike request was present in the supplied captures.
 - `GET /api/walking-challenge/status`
 - `POST /api/events`
 
-Anything not listed as observed here should be treated as unknown until captured or otherwise independently documented. Absence from a HAR means unknown, not necessarily nonexistent.
+Anything not listed as established here should be treated as unknown until independently documented or verified. Unknown does not necessarily mean nonexistent.
