@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from .._resource import ResourceMixin
+from ..models import AdRewardClaimResponse
 
 
 class AccountMixin(ResourceMixin):
@@ -80,8 +81,11 @@ class AccountMixin(ResourceMixin):
     def register_push_token(self, token: str, *, platform: str = "ios") -> Any:
         return self.post("/api/me/push-tokens", json={"token": token, "platform": platform})
 
-    def claim_ad_reward(self, *, source: str = "watch_ad") -> Any:
-        return self.post("/api/me/ad-rewards/claim", params={"source": source})
+    def claim_ad_reward(self, *, source: str = "watch_ad") -> AdRewardClaimResponse:
+        return cast(
+            AdRewardClaimResponse,
+            self.post("/api/me/ad-rewards/claim", params={"source": source}),
+        )
 
     def blocked_users(self) -> Any:
         return self.get("/api/me/blocked-users")
