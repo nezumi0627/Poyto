@@ -12,7 +12,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     for name in (
         "health", "profile", "balances", "portfolio", "missions", "streak",
-        "referral", "notifications", "home", "walking", "refresh",
+        "referral", "notifications", "home", "walking", "refresh", "session",
     ):
         sub.add_parser(name)
 
