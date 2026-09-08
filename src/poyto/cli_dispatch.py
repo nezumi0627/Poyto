@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import getpass
 import json
+from collections.abc import Callable
 from typing import Any
 
 from .auto import PoytoClient
@@ -30,19 +31,31 @@ def require_yes(parser: argparse.ArgumentParser, args: argparse.Namespace, actio
         parser.error(f"{action} はアカウント状態を変更します。--yes を付けてください")
 
 
+def _simple_commands(client: PoytoClient) -> dict[str, Callable[[], Any]]:
+    return {
+        "health": client.health,
+        "profile": client.profile,
+        "balances": client.balances,
+        "portfolio": client.portfolio,
+        "missions": client.missions,
+        "streak": client.login_streak,
+        "notifications": client.notifications,
+        "walking": client.walking_challenge_status,
+    }
+
+
 def execute(parser: argparse.ArgumentParser, args: argparse.Namespace, client: PoytoClient) -> Any:
     command = args.command
-    if command == "health": return client.health()
-    if command == "profile": return client.profile()
-    if command == "balances": return client.balances()
-    if command == "portfolio": return client.portfolio()
-    if command == "missions": return client.missions()
-    if command == "streak": return client.login_streak()
-    if command == "notifications": return client.notifications()
-    if command == "walking": return client.walking_challenge_status()
-    if command == "refresh": return masked(client.refresh())
-    if command == "referral": return {"code": client.referral_code(), "stats": client.referral_stats()}
-    if command == "home": return {"sections": client.home_sections(), "tabs": client.home_tabs()}
+    simple = _simple_commands(client).get(command)
+    if simple is not None:
+        return simple()
+
+    if command == "refresh":
+        return masked(client.refresh())
+    if command == "referral":
+        return {"code": client.referral_code(), "stats": client.referral_stats()}
+    if command == "home":
+        return {"sections": client.home_sections(), "tabs": client.home_tabs()}
     if command == "login":
         token = args.login_token or getpass.getpass("POYP access token: ")
         return masked(client.login(token, args.login_refresh_token))
@@ -51,16 +64,23 @@ def execute(parser: argparse.ArgumentParser, args: argparse.Namespace, client: P
         id_token = args.id_token or settings.apple_id_token
         if not id_token:
             parser.error("--id-token または POYTO_APPLE_ID_TOKEN / POYP_APPLE_ID_TOKEN が必要です")
-        return masked(client.login_with_apple(
-            id_token=id_token,
-            apple_access_token=args.apple_access_token or settings.apple_access_token,
-            nonce=args.nonce or settings.apple_nonce,
-        ))
+        return masked(
+            client.login_with_apple(
+                id_token=id_token,
+                apple_access_token=args.apple_access_token or settings.apple_access_token,
+                nonce=args.nonce or settings.apple_nonce,
+            )
+        )
     if command == "logout":
         client.logout(local_only=args.local_only)
         return {"ok": True, "saved_session": False}
     if command == "markets":
-        return client.markets(limit=args.limit, phase=args.phase, feed=args.feed, sort=args.sort)
+        return client.markets(
+            limit=args.limit,
+            phase=args.phase,
+            feed=args.feed,
+            sort=args.sort,
+        )
     if command == "market":
         return {
             "market": client.market(args.id),
@@ -70,13 +90,30 @@ def execute(parser: argparse.ArgumentParser, args: argparse.Namespace, client: P
         }
     if command == "buy":
         require_yes(parser, args, "購入")
-        return client.buy(market_id=args.market_id, position_index=args.position_index, point_amount=args.point_amount, order_surface=args.order_surface, display_preset=args.display_preset, entry_point=args.entry_point)
+        return client.buy(
+            market_id=args.market_id,
+            position_index=args.position_index,
+            point_amount=args.point_amount,
+            order_surface=args.order_surface,
+            display_preset=args.display_preset,
+            entry_point=args.entry_point,
+        )
     if command == "sell":
         require_yes(parser, args, "売却")
-        return client.sell(market_id=args.market_id, position_index=args.position_index, shares=args.shares, order_surface=args.order_surface, entry_point=args.entry_point)
+        return client.sell(
+            market_id=args.market_id,
+            position_index=args.position_index,
+            shares=args.shares,
+            order_surface=args.order_surface,
+            entry_point=args.entry_point,
+        )
     if command == "comment":
         require_yes(parser, args, "コメント投稿")
-        return client.post_comment(args.market_id, args.body, parent_comment_id=args.parent_comment_id)
+        return client.post_comment(
+            args.market_id,
+            args.body,
+            parent_comment_id=args.parent_comment_id,
+        )
     if command == "edit-comment":
         require_yes(parser, args, "コメント編集")
         return client.edit_comment(args.comment_id, args.body)
@@ -92,15 +129,25 @@ def execute(parser: argparse.ArgumentParser, args: argparse.Namespace, client: P
     if command == "unfollow":
         require_yes(parser, args, "フォロー解除")
         return client.unfollow_user(args.user_id)
-    if command == "activity": return client.market_activity(args.market_id, limit=args.limit, types=args.types)
-    if command == "charts": return client.market_charts(args.market_ids, tf=args.tf)
-    if command == "price": return client.asset_price(args.asset)
-    if command == "transactions": return client.balance_transactions(currency=args.currency, limit=args.limit, cursor=args.cursor)
+    if command == "activity":
+        return client.market_activity(args.market_id, limit=args.limit, types=args.types)
+    if command == "charts":
+        return client.market_charts(args.market_ids, tf=args.tf)
+    if command == "price":
+        return client.asset_price(args.asset)
+    if command == "transactions":
+        return client.balance_transactions(
+            currency=args.currency,
+            limit=args.limit,
+            cursor=args.cursor,
+        )
     if command == "set-referral":
         require_yes(parser, args, "紹介コード変更")
         return client.set_referral_code(args.code)
-    if command == "referral-available": return client.referral_code_available(args.code)
-    if command == "read-all-notifications": return client.mark_all_notifications_read()
+    if command == "referral-available":
+        return client.referral_code_available(args.code)
+    if command == "read-all-notifications":
+        return client.mark_all_notifications_read()
     if command == "claim-ad-reward":
         require_yes(parser, args, "報酬claim")
         return client.claim_ad_reward(source=args.source)
@@ -112,7 +159,11 @@ def execute(parser: argparse.ArgumentParser, args: argparse.Namespace, client: P
             "followers": client.user_followers(args.user_id),
             "following": client.user_following(args.user_id),
             "balance_history": client.user_balance_history(args.user_id),
-            "portfolio_history": client.user_portfolio_history(args.user_id, tab=args.tab, sort=args.sort),
+            "portfolio_history": client.user_portfolio_history(
+                args.user_id,
+                tab=args.tab,
+                sort=args.sort,
+            ),
         }
     if command == "raw":
         return client.request(
