@@ -68,6 +68,9 @@ class PoytoClient(BasePoytoClient):
     def from_env(cls, **kwargs: Any) -> PoytoClient:
         return cls(**kwargs)
 
+    def __enter__(self) -> PoytoClient:
+        return self
+
     def login(
         self,
         access_token: str,
