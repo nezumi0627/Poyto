@@ -28,13 +28,15 @@ python tools/endpoint_inventory.py POYP.apk .analysis/decompiled.js `
   --markdown .analysis/endpoints.md
 ```
 
-For hermes-dec output, the tool only records a method/path pair when it sees a nearby `METHOD -> options.method -> route -> helper(route, options)` call pattern. This is still classified as **static**, but is substantially stronger than a loose string-table match.
+For hermes-dec output, the scanner symbolically follows the common POYP request-building shapes instead of relying only on adjacent string matches. It reconstructs concat-built routes, labels common dynamic path segments, recovers query keys from URLSearchParams-like `set`/`toString` flows, and recovers top-level JSON body keys when the object/stringify flow is statically visible. For high-confidence POYP `_fetch*`/GET helpers, a route-only helper call is treated as the shared request helper's default GET behavior. The function-name and first-route-segment allowlists prevent unrelated bundled SDK routes from being attributed to `api.poyp.app`.
+
+These results remain **static** evidence. A reconstructed method/path/request shape proves that the shipped client contains and calls that route shape; it does not prove that the server still accepts the route, that the current account is eligible, or that all runtime-only fields were recovered.
 
 HAR output contains only route metadata: host, method, normalized path, query-key names, top-level request-body key names, response statuses, and source filename. Query/body values, headers, cookies, tokens, user payloads, and response bodies are not emitted.
 
 By default only `poyp.app` hosts are included. Use `--all-hosts` only when you intentionally need third-party SDK traffic.
 
-`--known-doc docs/endpoints.md` is enabled by default when that file exists. Markdown output then includes a **Static-only paths vs documented observed routes** section. Treat that section as a research queue, not as a list of supported Poyto endpoints.
+`--known-doc docs/endpoints.md` is enabled by default when that file exists. Comparison uses the exact **HTTP method + normalized path** pair. Markdown output includes a `Documented observed` column and a **Static-only paths vs documented observed routes** section. Treat static-only entries as a research queue, not as already verified Poyto endpoints.
 
 ## Recommended process
 

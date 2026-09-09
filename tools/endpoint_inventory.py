@@ -29,6 +29,45 @@ DECOMPILED_METHOD_RE = re.compile(
 )
 DECOMPILED_METHOD_PROP_RE = re.compile(r"^\s*(r\d+)\['method'\] = (r\d+);\s*$")
 DECOMPILED_ROUTE_RE = re.compile(r"^\s*(r\d+) = '(/[^'\r\n]+)';\s*$")
+DECOMPILED_STRING_RE = re.compile(r"^\s*(r\d+) = '([^'\r\n]*)';\s*$")
+DECOMPILED_COPY_RE = re.compile(r"^\s*(r\d+) = (r\d+);\s*$")
+DECOMPILED_ARG_COPY_RE = re.compile(r"^\s*(r\d+) = a\d+;\s*$")
+DECOMPILED_PROP_RE = re.compile(r"^\s*(r\d+) = (r\d+)\.([A-Za-z_$][\w$]*);\s*$")
+DECOMPILED_EMPTY_OBJECT_RE = re.compile(r"^\s*(r\d+) = \{\};\s*$")
+DECOMPILED_OBJECT_PROP_RE = re.compile(r"^\s*(r\d+)\['([^']+)'\] = (r\d+);\s*$")
+DECOMPILED_BIND_CALL_RE = re.compile(
+    r"^\s*(r\d+) = (r\d+)\.bind\((r\d+|undefined)\)\((.*)\);\s*$"
+)
+DECOMPILED_FUNCTION_RE = re.compile(r"Original name: ([^,]+),")
+
+POYP_API_ROOTS = {
+    "adjust-attribution",
+    "campaign-banners",
+    "check-username",
+    "comments",
+    "eraberu-pay",
+    "faqs",
+    "global-chat",
+    "home-sections",
+    "home-tabs",
+    "interests",
+    "leaderboard",
+    "live-moments",
+    "live-stats",
+    "markets",
+    "me",
+    "onboarding",
+    "prices",
+    "safety",
+    "search",
+    "settlements",
+    "teams",
+    "timeline",
+    "trades",
+    "users",
+    "walking-challenge",
+    "worldcup",
+}
 
 SCAN_SUFFIXES = {
     ".bundle",
@@ -76,7 +115,7 @@ class Endpoint:
 def normalize_path(path: str) -> str:
     path = UUID_RE.sub("{uuid}", path)
     path = LONG_NUMERIC_SEGMENT_RE.sub("{id}", path)
-    return path.rstrip("/\"'`,;)]}") or "/"
+    return path.rstrip("/\"'`,;)]") or "/"
 
 
 def is_poyp_host(host: str) -> bool:
@@ -260,9 +299,370 @@ def split_route(raw_path: str) -> tuple[str, set[str]]:
     query_keys = {
         item.split("=", 1)[0]
         for item in query.split("&")
-        if item and item.split("=", 1)[0]
+        if item and item.split("=", 1)[0] and not item.startswith("{")
     }
     return normalize_path(path_text), query_keys
+
+
+def split_decompiled_args(raw: str) -> list[str]:
+    """Split the simple register/literal argument lists emitted by hermes-dec."""
+
+    result: list[str] = []
+    current: list[str] = []
+    quote: str | None = None
+    depth = 0
+    for char in raw:
+        if quote is not None:
+            current.append(char)
+            if char == quote:
+                quote = None
+            continue
+        if char in {"'", '"'}:
+            quote = char
+            current.append(char)
+        elif char in "([{":
+            depth += 1
+            current.append(char)
+        elif char in ")]}":
+            depth = max(0, depth - 1)
+            current.append(char)
+        elif char == "," and depth == 0:
+            result.append("".join(current).strip())
+            current = []
+        else:
+            current.append(char)
+    if current:
+        result.append("".join(current).strip())
+    return result
+
+
+def label_dynamic_segments(path: str, function_name: str | None) -> str:
+    """Give common POYP path parameters stable names instead of `{dynamic}`."""
+
+    segment_labels = {
+        "campaign-results": "campaignResultId",
+        "markets": "marketId",
+        "users": "userId",
+        "comments": "commentId",
+        "messages": "messageId",
+        "teams": "teamId",
+        "entries": "entryId",
+        "prices": "asset",
+        "interests": "category",
+        "missions": "slug",
+        "notifications": "notificationId",
+        "check-username": "username",
+        "live-stats": "id",
+    }
+    parts = path.split("/")
+    for index, part in enumerate(parts):
+        if part != "{dynamic}":
+            continue
+        previous = parts[index - 1] if index else ""
+        label = segment_labels.get(previous)
+        if label is None and function_name:
+            lowered = function_name.lower()
+            for needle, candidate in (
+                ("market", "marketId"),
+                ("comment", "commentId"),
+                ("user", "userId"),
+                ("asset", "asset"),
+                ("price", "asset"),
+                ("interest", "category"),
+                ("mission", "slug"),
+            ):
+                if needle in lowered:
+                    label = candidate
+                    break
+        parts[index] = "{" + (label or "param") + "}"
+    return "/".join(parts)
+
+
+def is_default_get_call(function_name: str | None, raw_route: str) -> bool:
+    """Identify POYP request-helper calls that omit options and therefore use GET."""
+
+    if not function_name or not raw_route.startswith("/") or raw_route.startswith("//"):
+        return False
+    if not (
+        function_name.startswith("_fetch")
+        or function_name == "_getLoginStreak"
+        or function_name.startswith("_check")
+        or function_name == "_validateReferralCode"
+    ):
+        return False
+    route_path = raw_route.split("?", 1)[0].strip("/")
+    root = route_path.split("/", 1)[0] if route_path else ""
+    return root in POYP_API_ROOTS
+
+
+def scan_decompiled_dynamic_calls(
+    inventory: dict[tuple[str, str, str], Endpoint],
+    text: str,
+    source: str,
+) -> None:
+    """Symbolically recover concat-built Hermes routes and obvious request metadata."""
+
+    strings: dict[str, str] = {}
+    string_query_keys: dict[str, set[str]] = {}
+    function_kinds: dict[str, tuple[str, str | None]] = {}
+    labels: dict[str, str] = {}
+    methods: dict[str, str] = {}
+    option_methods: dict[str, str] = {}
+    option_body_keys: dict[str, set[str]] = {}
+    object_keys: dict[str, set[str]] = {}
+    query_object_keys: dict[str, set[str]] = {}
+    serialized_body_keys: dict[str, set[str]] = {}
+    current_function: str | None = None
+    emitted: set[tuple[str, str]] = set()
+
+    def clear_register(register: str) -> None:
+        for mapping in (
+            strings,
+            string_query_keys,
+            function_kinds,
+            labels,
+            methods,
+            option_methods,
+            option_body_keys,
+            object_keys,
+            query_object_keys,
+            serialized_body_keys,
+        ):
+            mapping.pop(register, None)
+
+    def copy_register(destination: str, source_register: str) -> None:
+        clear_register(destination)
+        if source_register in strings:
+            strings[destination] = strings[source_register]
+        if source_register in string_query_keys:
+            string_query_keys[destination] = set(string_query_keys[source_register])
+        if source_register in function_kinds:
+            function_kinds[destination] = function_kinds[source_register]
+        if source_register in labels:
+            labels[destination] = labels[source_register]
+        if source_register in methods:
+            methods[destination] = methods[source_register]
+        if source_register in option_methods:
+            option_methods[destination] = option_methods[source_register]
+        if source_register in option_body_keys:
+            option_body_keys[destination] = set(option_body_keys[source_register])
+        if source_register in object_keys:
+            object_keys[destination] = set(object_keys[source_register])
+        if source_register in query_object_keys:
+            query_object_keys[destination] = set(query_object_keys[source_register])
+        if source_register in serialized_body_keys:
+            serialized_body_keys[destination] = set(serialized_body_keys[source_register])
+
+    def symbol(argument: str) -> tuple[str | None, set[str]]:
+        if argument in strings:
+            return strings[argument], set(string_query_keys.get(argument, set()))
+        if argument in labels:
+            return "{" + labels[argument] + "}", set()
+        if len(argument) >= 2 and argument[0] == argument[-1] and argument[0] in {"'", '"'}:
+            return argument[1:-1], set()
+        return None, set()
+
+    for line in text.splitlines():
+        function_match = DECOMPILED_FUNCTION_RE.search(line)
+        if function_match:
+            name = function_match.group(1)
+            if name not in {"?anon_0_", "<anonymous>"}:
+                current_function = name
+            strings.clear()
+            string_query_keys.clear()
+            function_kinds.clear()
+            labels.clear()
+            methods.clear()
+            option_methods.clear()
+            option_body_keys.clear()
+            object_keys.clear()
+            query_object_keys.clear()
+            serialized_body_keys.clear()
+            continue
+
+        empty_match = DECOMPILED_EMPTY_OBJECT_RE.match(line)
+        if empty_match:
+            register = empty_match.group(1)
+            clear_register(register)
+            object_keys[register] = set()
+            continue
+
+        method_match = DECOMPILED_METHOD_RE.match(line)
+        if method_match:
+            register, method = method_match.groups()
+            clear_register(register)
+            strings[register] = method
+            methods[register] = method
+            continue
+
+        route_match = DECOMPILED_ROUTE_RE.match(line)
+        if route_match:
+            register, raw_path = route_match.groups()
+            clear_register(register)
+            strings[register] = raw_path
+            continue
+
+        string_match = DECOMPILED_STRING_RE.match(line)
+        if string_match:
+            register, value = string_match.groups()
+            clear_register(register)
+            strings[register] = value
+            continue
+
+        arg_match = DECOMPILED_ARG_COPY_RE.match(line)
+        if arg_match:
+            register = arg_match.group(1)
+            clear_register(register)
+            labels[register] = "dynamic"
+            continue
+
+        copy_match = DECOMPILED_COPY_RE.match(line)
+        if copy_match:
+            copy_register(*copy_match.groups())
+            continue
+
+        property_match = DECOMPILED_PROP_RE.match(line)
+        if property_match:
+            destination, base, prop = property_match.groups()
+            clear_register(destination)
+            if prop in {"encodeURIComponent", "concat", "stringify"}:
+                function_kinds[destination] = (prop, base)
+            elif prop in {"append", "set", "toString"}:
+                function_kinds[destination] = (prop, base)
+            else:
+                # Property values are often fed directly into URL concat
+                # (for example options.tf).  Keeping the property name lets
+                # us preserve the route even when the concrete value is only
+                # known at runtime.
+                labels[destination] = prop
+            continue
+
+        object_prop_match = DECOMPILED_OBJECT_PROP_RE.match(line)
+        if object_prop_match:
+            target, prop, value_register = object_prop_match.groups()
+            if target in object_keys and prop not in {"method", "body", "headers"}:
+                object_keys[target].add(prop)
+            if prop == "method" and value_register in methods:
+                option_methods[target] = methods[value_register]
+            elif prop == "body":
+                option_body_keys[target] = set(serialized_body_keys.get(value_register, set()))
+            continue
+
+        call_match = DECOMPILED_BIND_CALL_RE.match(line)
+        if not call_match:
+            continue
+        destination, function_register, bound_register, raw_args = call_match.groups()
+        args = split_decompiled_args(raw_args)
+        kind_info = function_kinds.get(function_register)
+
+        # A common hermes-dec shape reuses the output register as either the
+        # concat receiver or one of its arguments, e.g.
+        # `r4 = concat.bind(r4)(r7, r1)`.  Snapshot every input before the
+        # destination is overwritten so symbolic route construction does not
+        # accidentally erase its own prefix/suffix.
+        bound_symbol = symbol(bound_register)
+        arg_symbols = [symbol(argument) for argument in args]
+        arg_object_keys = [set(object_keys.get(argument, set())) for argument in args]
+        kind_base = kind_info[1] if kind_info is not None else None
+        base_query_object_keys = set(query_object_keys.get(kind_base or "", set()))
+
+        # Detect the actual API helper call before the destination register is overwritten.
+        if len(args) >= 2 and args[0].startswith("r") and args[1].startswith("r"):
+            route_register, options_register = args[0], args[1]
+            raw_route = strings.get(route_register)
+            method = option_methods.get(options_register)
+            if raw_route and method and raw_route.startswith("/") and not raw_route.startswith("//"):
+                path, query_keys = split_route(raw_route)
+                query_keys.update(string_query_keys.get(route_register, set()))
+                if not path.startswith("/api/"):
+                    path = "/api" + path
+                path = label_dynamic_segments(path, current_function)
+                marker = (method, path)
+                if marker not in emitted:
+                    emitted.add(marker)
+                    merge_endpoint(
+                        inventory,
+                        Endpoint(
+                            host="api.poyp.app",
+                            path=path,
+                            method=method,
+                            query_keys=query_keys,
+                            body_keys=set(option_body_keys.get(options_register, set())),
+                            sources={source},
+                            evidence={"static"},
+                            occurrences=1,
+                        ),
+                    )
+
+        # The shared POYP request helper defaults to GET when no options object is
+        # supplied. Hermes emits these calls as helper.bind(undefined)(route).
+        # Restrict the inference to known POYP API helper functions and route roots
+        # so unrelated bundled SDK calls are not attributed to api.poyp.app.
+        if len(args) == 1 and args[0].startswith("r"):
+            route_register = args[0]
+            raw_route = strings.get(route_register)
+            if raw_route and is_default_get_call(current_function, raw_route):
+                path, query_keys = split_route(raw_route)
+                query_keys.update(string_query_keys.get(route_register, set()))
+                if not path.startswith("/api/"):
+                    path = "/api" + path
+                path = label_dynamic_segments(path, current_function)
+                marker = ("GET", path)
+                if marker not in emitted:
+                    emitted.add(marker)
+                    merge_endpoint(
+                        inventory,
+                        Endpoint(
+                            host="api.poyp.app",
+                            path=path,
+                            method="GET",
+                            query_keys=query_keys,
+                            sources={source},
+                            evidence={"static"},
+                            occurrences=1,
+                        ),
+                    )
+
+        clear_register(destination)
+        if kind_info is None:
+            continue
+        kind, base = kind_info
+        if kind == "encodeURIComponent" and args:
+            label = labels.get(args[0], "dynamic")
+            strings[destination] = "{" + label + "}"
+            labels[destination] = label
+        elif kind == "concat":
+            base_text, base_query_keys = bound_symbol
+            pieces: list[str] = []
+            query_keys = set(base_query_keys)
+            if base_text is not None:
+                pieces.append(base_text)
+                for argument, (value, argument_query_keys) in zip(args, arg_symbols, strict=True):
+                    if value is None:
+                        # Query strings are frequently produced by a helper
+                        # call that hermes-dec cannot name.  A register-valued
+                        # concat argument is still enough to retain the path;
+                        # split_route() deliberately ignores this placeholder
+                        # as an unknown query key.
+                        if argument.startswith("r"):
+                            value = "{param}"
+                        else:
+                            pieces = []
+                            break
+                    pieces.append(value)
+                    query_keys.update(argument_query_keys)
+            if pieces:
+                strings[destination] = "".join(pieces)
+                string_query_keys[destination] = query_keys
+        elif kind in {"append", "set"} and base is not None and args:
+            key = arg_symbols[0][0]
+            if key:
+                query_object_keys.setdefault(base, set()).add(key)
+        elif kind == "toString" and base is not None:
+            strings[destination] = "{query}"
+            string_query_keys[destination] = base_query_object_keys
+        elif kind == "stringify" and args:
+            serialized_body_keys[destination] = arg_object_keys[0]
 
 
 def scan_decompiled_calls(
@@ -271,60 +671,7 @@ def scan_decompiled_calls(
     source: str,
 ) -> None:
     """Extract high-confidence method/path pairs from hermes-dec decompiler output."""
-
-    lines = text.splitlines()
-    for index, line in enumerate(lines):
-        method_match = DECOMPILED_METHOD_RE.match(line)
-        if not method_match:
-            continue
-        method_register, method = method_match.groups()
-
-        options_register: str | None = None
-        method_prop_index = -1
-        for offset in range(index + 1, min(index + 8, len(lines))):
-            prop_match = DECOMPILED_METHOD_PROP_RE.match(lines[offset])
-            if prop_match and prop_match.group(2) == method_register:
-                options_register = prop_match.group(1)
-                method_prop_index = offset
-                break
-        if options_register is None:
-            continue
-
-        for route_index in range(method_prop_index + 1, min(method_prop_index + 14, len(lines))):
-            route_match = DECOMPILED_ROUTE_RE.match(lines[route_index])
-            if not route_match:
-                continue
-            route_register, raw_path = route_match.groups()
-            if not raw_path.startswith("/") or raw_path.startswith("//"):
-                continue
-
-            call_confirmed = False
-            for call_index in range(route_index + 1, min(route_index + 5, len(lines))):
-                compact = lines[call_index].replace(" ", "")
-                if ".bind(" not in compact:
-                    continue
-                if f"({route_register},{options_register})" in compact:
-                    call_confirmed = True
-                    break
-            if not call_confirmed:
-                continue
-
-            path, query_keys = split_route(raw_path)
-            if not path.startswith("/api/"):
-                path = "/api" + path
-            merge_endpoint(
-                inventory,
-                Endpoint(
-                    host="api.poyp.app",
-                    path=path,
-                    method=method,
-                    query_keys=query_keys,
-                    sources={source},
-                    evidence={"static"},
-                    occurrences=1,
-                ),
-            )
-            break
+    scan_decompiled_dynamic_calls(inventory, text, source)
 
 
 def should_scan_member(name: str) -> bool:
@@ -426,10 +773,14 @@ def scan_archive_path(
     )
 
 
-def parse_known_routes(path: Path | None) -> set[str]:
+def parse_known_routes(path: Path | None) -> set[tuple[str, str]]:
     if path is None or not path.exists():
         return set()
-    return {normalize_path(match.group(2)) for match in DOC_ROUTE_RE.finditer(path.read_text(encoding="utf-8"))}
+    return {
+        (match.group(1), normalize_path(match.group(2)))
+        for match in DOC_ROUTE_RE.finditer(path.read_text(encoding="utf-8"))
+        if match.group(1)
+    }
 
 
 def records(inventory: dict[tuple[str, str, str], Endpoint]) -> list[dict[str, Any]]:
@@ -476,26 +827,36 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
             writer.writerow(flat)
 
 
-def write_markdown(path: Path, rows: list[dict[str, Any]], known_routes: set[str]) -> None:
+def write_markdown(
+    path: Path,
+    rows: list[dict[str, Any]],
+    known_routes: set[tuple[str, str]],
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    static_only = [row for row in rows if row["confidence"] == "static" and row["path"] not in known_routes]
+    static_only = [
+        row
+        for row in rows
+        if row["confidence"] == "static" and (row["method"], row["path"]) not in known_routes
+    ]
     lines = [
         "# Endpoint inventory",
         "",
         "Generated from local evidence. `observed` means HAR traffic; `static` means an APK/XAPK/string match and does not establish method, request shape, or server behavior.",
         "",
-        "| Evidence | Method | Host | Path | Query keys | Body keys | Statuses |",
-        "| --- | --- | --- | --- | --- | --- | --- |",
+        "| Evidence | Method | Host | Path | Query keys | Body keys | Documented observed | Statuses |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in rows:
+        documented = (row["method"], row["path"]) in known_routes
         lines.append(
-            "| {confidence} | {method} | `{host}` | `{path}` | {query} | {body} | {statuses} |".format(
+            "| {confidence} | {method} | `{host}` | `{path}` | {query} | {body} | {documented} | {statuses} |".format(
                 confidence=row["confidence"],
                 method=row["method"] or "?",
                 host=row["host"],
                 path=row["path"],
                 query=", ".join(f"`{item}`" for item in row["query_keys"]) or "-",
                 body=", ".join(f"`{item}`" for item in row["body_keys"]) or "-",
+                documented="yes" if documented else "no",
                 statuses=", ".join(str(item) for item in row["statuses"]) or "-",
             )
         )
@@ -503,7 +864,7 @@ def write_markdown(path: Path, rows: list[dict[str, Any]], known_routes: set[str
     if known_routes:
         lines.extend(["", "## Static-only paths vs documented observed routes", ""])
         if static_only:
-            lines.extend(f"- `{row['path']}`" for row in static_only)
+            lines.extend(f"- `{row['method']} {row['path']}`" for row in static_only)
         else:
             lines.append("No static-only paths found.")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -552,7 +913,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     observed = sum(1 for row in rows if row["confidence"] == "observed")
     static = len(rows) - observed
     static_only = sum(
-        1 for row in rows if row["confidence"] == "static" and row["path"] not in known_routes
+        1
+        for row in rows
+        if row["confidence"] == "static" and (row["method"], row["path"]) not in known_routes
     )
     print(
         f"endpoints={len(rows)} observed={observed} static={static} "
