@@ -9,6 +9,8 @@ from typing import Any
 from .exceptions import CredentialError
 from .models import AuthSession
 
+_AUTH_TOKEN_URL = "https://auth.poyp.app/auth/v1/token"
+
 
 def _response_json(entry: dict[str, Any]) -> dict[str, Any] | None:
     response = entry.get("response")
@@ -35,19 +37,23 @@ def _response_json(entry: dict[str, Any]) -> dict[str, Any] | None:
 def extract_session_from_har(data: dict[str, Any]) -> AuthSession:
     """Extract the newest POYP/Supabase session returned in a HAR capture.
 
-    Only response bodies are inspected. Request bodies are intentionally ignored
-    because Apple's provider request also contains a field named ``access_token``
-    that is not the POYP session access token.
+    Only response bodies from POYP's Auth token endpoint are inspected. Request
+    bodies are intentionally ignored because Apple's provider request also
+    contains a field named ``access_token`` that is not the POYP session token.
     """
     log = data.get("log")
     entries = log.get("entries") if isinstance(log, dict) else None
     if not isinstance(entries, list):
         raise CredentialError("HAR does not contain log.entries")
 
-    fallback: AuthSession | None = None
     for raw_entry in reversed(entries):
         if not isinstance(raw_entry, dict):
             continue
+        request = raw_entry.get("request")
+        url = request.get("url") if isinstance(request, dict) else None
+        if not isinstance(url, str) or not url.startswith(_AUTH_TOKEN_URL):
+            continue
+
         payload = _response_json(raw_entry)
         if payload is None:
             continue
@@ -57,17 +63,8 @@ def extract_session_from_har(data: dict[str, Any]) -> AuthSession:
             continue
         if not isinstance(refresh, str) or not refresh.strip():
             continue
+        return AuthSession.from_json(payload)
 
-        session = AuthSession.from_json(payload)
-        request = raw_entry.get("request")
-        url = request.get("url") if isinstance(request, dict) else None
-        if isinstance(url, str) and "/auth/v1/token" in url:
-            return session
-        if fallback is None:
-            fallback = session
-
-    if fallback is not None:
-        return fallback
     raise CredentialError("HAR does not contain a POYP session response")
 
 
