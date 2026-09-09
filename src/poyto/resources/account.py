@@ -3,7 +3,13 @@ from __future__ import annotations
 from typing import Any, cast
 
 from .._resource import ResourceMixin
-from ..models import AdRewardClaimResponse, LoginBonusStatus
+from ..models import (
+    AdRewardClaimResponse,
+    LoginBonusStatus,
+    LossGachaClaimResponse,
+    LossGachaStatus,
+    LossGachaTicketResponse,
+)
 
 
 class AccountMixin(ResourceMixin):
@@ -57,11 +63,7 @@ class AccountMixin(ResourceMixin):
         return cast(LoginBonusStatus, self.get("/api/me/login-streak"))
 
     def login_bonus(self) -> LoginBonusStatus:
-        """Return today's login-bonus/streak state.
-
-        The observed service flow exposes the daily reward state through the login-streak
-        request. No separate normal-login claim request is currently known.
-        """
+        """Return today's login-bonus/streak state."""
         return self.login_streak()
 
     def campaign_results(self) -> Any:
@@ -73,9 +75,30 @@ class AccountMixin(ResourceMixin):
             params["since"] = since
         return self.get("/api/me/provider-rewards", params=params)
 
-    def loss_gacha_status(self, market_id: str | None = None) -> Any:
+    def loss_gacha_status(self, market_id: str | None = None) -> LossGachaStatus:
         params = {"marketId": market_id} if market_id else None
-        return self.get("/api/me/loss-gacha/status", params=params)
+        return cast(LossGachaStatus, self.get("/api/me/loss-gacha/status", params=params))
+
+    def create_loss_gacha_ticket(self, market_id: str) -> LossGachaTicketResponse:
+        return cast(
+            LossGachaTicketResponse,
+            self.post("/api/me/loss-gacha/ticket", json={"marketId": market_id}),
+        )
+
+    def claim_loss_gacha(
+        self,
+        market_id: str,
+        ticket_id: str,
+        *,
+        kind: str = "video_gacha",
+    ) -> LossGachaClaimResponse:
+        return cast(
+            LossGachaClaimResponse,
+            self.post(
+                "/api/me/loss-gacha/claim",
+                json={"marketId": market_id, "kind": kind, "ticketId": ticket_id},
+            ),
+        )
 
     def notifications(self, **params: Any) -> Any:
         return self.get("/api/me/notifications", params=params or None)
