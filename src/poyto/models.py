@@ -21,6 +21,15 @@ class AdRewardClaimResponse(TypedDict):
     dailyViewLimit: int
 
 
+class LoginBonusStatus(TypedDict):
+    currentStreakDay: int
+    todayReward: int
+    claimedToday: bool
+    bonusClaimedToday: bool
+    bonusReward: int
+    cycle: list[int]
+
+
 @dataclass(slots=True)
 class AuthSession:
     access_token: str
