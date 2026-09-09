@@ -67,6 +67,10 @@ When `PoytoClient()` loads credentials:
 - if expiry is known and the access token is expired or within 60 seconds of expiry, Poyto refreshes when a refresh token is available;
 - if an authenticated POYP API request returns HTTP 401 and a refresh token exists, Poyto refreshes once and retries once;
 - after a successful refresh, the newest token pair is persisted;
+- refresh-token rotation is serialized through a local lock so multiple Poyto/MCP
+  processes do not intentionally consume the same saved refresh token concurrently;
+- if another process has already persisted a newer rotated token pair, a stale client
+  adopts that newer saved session instead of refreshing the older pair again;
 - Poyto never attempts to decode a refresh token as a JWT.
 
 Example:
@@ -86,7 +90,11 @@ session = client.refresh()
 
 ## Token storage and concurrency
 
-With rotation, two processes refreshing the same session can race. Supabase has reuse/recovery behavior for legitimate races, but applications should not rely on it as a locking mechanism. Prefer one active session store per independently authenticated client/process when possible.
+With rotation, two processes refreshing the same session can race. Poyto serializes refresh
+rotation for one session file and re-checks the saved session while holding that lock. If a
+refresh token is already consumed or no longer exists and no newer saved pair exists, Poyto
+reports an authentication error instead of repeatedly submitting the known-invalid refresh
+token.
 
 Poyto's default session file is outside the repository:
 

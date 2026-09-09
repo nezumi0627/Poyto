@@ -13,6 +13,12 @@ def _client_call(method: str, /, *args: Any, **kwargs: Any) -> Any:
         return getattr(client, method)(*args, **kwargs)
 
 
+def _health_call() -> Any:
+    """Check API reachability without refreshing an unrelated saved session."""
+    with PoytoClient(auto_refresh=False) as client:
+        return client.health()
+
+
 def _require_confirmation(confirm: bool, action: str) -> None:
     if not confirm:
         raise ValueError(
@@ -46,7 +52,7 @@ def build_server(*, host: str = "127.0.0.1", port: int = 8765) -> Any:
     @mcp.tool()
     def health() -> Any:
         """Check whether the POYP API is reachable."""
-        return _client_call("health")
+        return _health_call()
 
     @mcp.tool()
     def profile() -> Any:
