@@ -58,6 +58,10 @@ def execute(parser: argparse.ArgumentParser, args: argparse.Namespace, client: P
     if command == "home":
         return {"sections": client.home_sections(), "tabs": client.home_tabs()}
     if command == "login":
+        if args.login_har:
+            if args.login_token or args.login_refresh_token:
+                parser.error("--har は login_token / --refresh-token と同時に指定できません")
+            return masked(client.login_from_har(args.login_har))
         token = args.login_token or getpass.getpass("POYP access token: ")
         return masked(client.login(token, args.login_refresh_token))
     if command == "login-apple":
