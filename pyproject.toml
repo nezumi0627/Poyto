@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [{ name = "nezumi0627" }]
-keywords = ["poyp", "api", "client", "prediction-market"]
+keywords = ["poyp", "api", "client", "prediction-market", "mcp"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Programming Language :: Python :: 3",
@@ -38,7 +38,7 @@ dev = [
 
 [project.scripts]
 poyto = "poyto.cli:main"
-poyto-mcp = "poyto.mcp_server:main"
+poyto-mcp = "poyto.mcp.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
