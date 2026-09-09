@@ -92,6 +92,48 @@ poyto-mcp
 
 See [AI agents, MCP, and scheduled runs](docs/agents.md) and the reusable [`skills/poyto/SKILL.md`](skills/poyto/SKILL.md).
 
+## Docker
+
+GitHub Actions publishes a multi-architecture image to `ghcr.io/tqmane/poyto`. The image contains both `linux/amd64` and `linux/arm64` variants, built on native GitHub-hosted x64 and Arm64 runners rather than through QEMU emulation.
+
+Pull and run the published image:
+
+```bash
+docker pull ghcr.io/tqmane/poyto:latest
+docker volume create poyto-data
+docker run -d \
+  --name poyto \
+  --restart unless-stopped \
+  -p 127.0.0.1:8765:8765 \
+  -v poyto-data:/data \
+  ghcr.io/tqmane/poyto:latest
+```
+
+The container serves the streamable-HTTP MCP endpoint on port `8765` and stores its session at `/data/session.json`, so credentials survive container recreation without being baked into the image.
+
+GitHub Container Registry creates a newly published package as private by default. If anonymous pulls are desired, set the `poyto` package visibility to **Public** in GitHub after its first publication.
+
+For the initial HAR bootstrap, use the same persistent volume and mount the capture read-only:
+
+```bash
+docker run --rm \
+  -v poyto-data:/data \
+  -v /absolute/path/to/capture.har.zip:/tmp/capture.har.zip:ro \
+  ghcr.io/tqmane/poyto:latest \
+  poyto login --har /tmp/capture.har.zip
+```
+
+The repository also includes `compose.yaml` for local builds/development:
+
+```bash
+docker compose up -d --build
+docker compose ps
+```
+
+On pushes to `main`, version tags, and manual workflow runs, `.github/workflows/docker.yml` publishes to GHCR. Pull requests build both architectures without publishing. Release tags such as `v1.2.3` additionally produce `1.2.3`, `1.2`, and `1` image tags; the default branch produces `latest`, and every published build gets a `sha-*` tag.
+
+If access is needed from another machine, keep the MCP port behind an authenticated HTTPS reverse proxy/tunnel rather than exposing it directly to the public internet.
+
 ## Quick start
 
 ```python
