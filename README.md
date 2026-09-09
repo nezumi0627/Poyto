@@ -85,7 +85,7 @@ It reports physical and non-blank lines for `src/poyto/**/*.py`, separates core 
 - corrected BTC price route to `/api/prices/BTC`
 - secret-safe session/token inspection helpers
 - typed ad-reward success response
-- CI on Python 3.10–3.14 with pytest, Ruff, mypy, code statistics, and package build
+- CI with Python 3.12 tests, Ruff, mypy, code statistics and package build; Python 3.10–3.14 compatibility tests on manual dispatch
 
 ## Install
 
@@ -366,7 +366,7 @@ python scripts/code_stats.py
 python -m build
 ```
 
-CI validates Python 3.10–3.14.
+Normal CI tests Python 3.12, matching the Docker runtime. Use Actions → CI → Run workflow for the full Python 3.10–3.14 compatibility matrix. Lint, type checking and package builds remain separate checks.
 
 ## Security
 

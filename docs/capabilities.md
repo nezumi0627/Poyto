@@ -22,7 +22,7 @@ Measured by CI with `python scripts/code_stats.py`:
 | Core `src/poyto/*.py` | 20 | 2,897 | 2,511 |
 | Resource wrappers `src/poyto/resources/*.py` | 7 | 485 | 400 |
 | **Source total** | **27** | **3,382** | **2,911** |
-| Tests | 10 | 1,250 | 1,020 |
+| Tests | 10 | 1,273 | 1,041 |
 
 Per-source-file snapshot:
 
@@ -159,7 +159,7 @@ State-changing commands require explicit `--yes` where defined.
 
 ## Local reliability features
 
-Poyto additionally implements credential-source priority, environment configuration, token-file parsing, configurable hosts/timeouts, reusable device metadata headers, context-manager support, `py.typed`, normalized API exceptions, secret-masked session inspection, network-free MockTransport tests, Ruff, mypy, package build and Python 3.10–3.14 CI.
+Poyto additionally implements credential-source priority, environment configuration, token-file parsing, configurable hosts/timeouts, reusable device metadata headers, context-manager support, `py.typed`, normalized API exceptions, secret-masked session inspection, network-free MockTransport tests, Ruff, mypy, package build, Python 3.12 tests on pushes/PRs, and Python 3.10–3.14 compatibility tests on manual CI dispatch.
 
 The Docker image also includes the standalone **Poyto Server Control** custom MCP app. It exposes Poyto tools plus `read`, `apply_patch`, `exec_command`, and `write_stdin`; supports independent Bearer authentication for generic MCP clients, a loopback-only Secure MCP Tunnel mode for direct ChatGPT use, bounded background command sessions, configured file roots, and an explicitly opt-in Docker host-control overlay using `nsenter`. These are local administration capabilities, not POYP API evidence.
 

@@ -197,7 +197,7 @@ python scripts/code_stats.py
 python -m build
 ```
 
-CI runs Python 3.10–3.14. Keep tests network-free by default.
+Normal CI tests Python 3.12 (matching Docker); manually dispatch the CI workflow to test Python 3.10–3.14. Keep tests network-free by default.
 
 Prefer `httpx.MockTransport` for API behavior. Tests for route wrappers should verify method, path, query, JSON/form body, relevant headers, and parsing of typed response fields.
 

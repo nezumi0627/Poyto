@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -19,6 +20,17 @@ def _paths(monkeypatch: pytest.MonkeyPatch, root: Path) -> ControlPaths:
     monkeypatch.setenv("POYTO_PLUGIN_ROOTS", str(root))
     monkeypatch.setenv("POYTO_PLUGIN_EXEC_MODE", "container")
     return ControlPaths.from_env()
+
+
+def _finish(manager: ExecManager, result: dict[str, Any]) -> dict[str, Any]:
+    """Collect yielded output without assuming how fast a CI runner starts a shell."""
+    output = result["output"]
+    for _ in range(10):
+        if "exit_code" in result:
+            return {**result, "output": output}
+        result = manager.write_stdin(session_id=result["session_id"], yield_time_ms=1000)
+        output += result["output"]
+    pytest.fail("command did not finish within the bounded polling window")
 
 
 def test_control_reader_and_patch_are_root_scoped(
@@ -74,19 +86,27 @@ def test_exec_command_and_write_stdin(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     manager = ExecManager(_paths(monkeypatch, tmp_path))
-    immediate = manager.exec_command(cmd="printf hello", workdir=str(tmp_path), yield_time_ms=1000)
-    assert immediate["exit_code"] == 0
-    assert immediate["output"] == "hello"
+    try:
+        immediate = _finish(manager, manager.exec_command(
+            cmd="printf hello", workdir=str(tmp_path), yield_time_ms=0,
+        ))
+        assert immediate["exit_code"] == 0
+        assert immediate["output"] == "hello"
 
-    background = manager.exec_command(
-        cmd="sleep 0.15; printf done",
-        workdir=str(tmp_path),
-        yield_time_ms=10,
-    )
-    assert "session_id" in background
-    final = manager.write_stdin(session_id=background["session_id"], yield_time_ms=1000)
-    assert final["exit_code"] == 0
-    assert "done" in final["output"]
+        # Waiting for stdin guarantees a running session without a sleep/race.
+        background = manager.exec_command(
+            cmd='read -r value; printf "%s" "$value"',
+            workdir=str(tmp_path),
+            yield_time_ms=0,
+        )
+        assert "session_id" in background
+        final = _finish(manager, manager.write_stdin(
+            session_id=background["session_id"], chars="done\n", yield_time_ms=0,
+        ))
+        assert final["exit_code"] == 0
+        assert final["output"] == "done"
+    finally:
+        manager.close()
 
 
 def test_exec_batch_keeps_first_nonzero_exit_and_continues(
@@ -94,14 +114,17 @@ def test_exec_batch_keeps_first_nonzero_exit_and_continues(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     manager = ExecManager(_paths(monkeypatch, tmp_path))
-    result = manager.exec_command(
-        cmds=["export POYTO_TEST_VALUE=works", "false", "printf \"$POYTO_TEST_VALUE\""],
-        workdir=str(tmp_path),
-        yield_time_ms=1000,
-    )
-    assert result["exit_code"] == 1
-    assert "works" in result["output"]
-    assert "command 3/3" in result["output"]
+    try:
+        result = _finish(manager, manager.exec_command(
+            cmds=["export POYTO_TEST_VALUE=works", "false", "printf \"$POYTO_TEST_VALUE\""],
+            workdir=str(tmp_path),
+            yield_time_ms=0,
+        ))
+        assert result["exit_code"] == 1
+        assert "works" in result["output"]
+        assert "command 3/3" in result["output"]
+    finally:
+        manager.close()
 
 
 def test_plugin_token_is_created_private(
