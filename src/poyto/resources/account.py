@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, cast
 
 from .._resource import ResourceMixin
-from ..models import AdRewardClaimResponse
+from ..models import AdRewardClaimResponse, LoginBonusStatus
 
 
 class AccountMixin(ResourceMixin):
@@ -53,8 +53,16 @@ class AccountMixin(ResourceMixin):
     def missions(self) -> Any:
         return self.get("/api/me/missions")
 
-    def login_streak(self) -> Any:
-        return self.get("/api/me/login-streak")
+    def login_streak(self) -> LoginBonusStatus:
+        return cast(LoginBonusStatus, self.get("/api/me/login-streak"))
+
+    def login_bonus(self) -> LoginBonusStatus:
+        """Return today's login-bonus/streak state.
+
+        The observed service flow exposes the daily reward state through the login-streak
+        request. No separate normal-login claim request is currently known.
+        """
+        return self.login_streak()
 
     def campaign_results(self) -> Any:
         return self.get("/api/me/campaign-results")

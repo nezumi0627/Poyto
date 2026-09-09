@@ -11,7 +11,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     for name in (
-        "health", "profile", "balances", "portfolio", "missions", "streak",
+        "health", "profile", "balances", "portfolio", "missions", "streak", "login-bonus",
         "referral", "notifications", "home", "walking", "refresh",
     ):
         sub.add_parser(name)

@@ -39,6 +39,7 @@ def _simple_commands(client: PoytoClient) -> dict[str, Callable[[], Any]]:
         "portfolio": client.portfolio,
         "missions": client.missions,
         "streak": client.login_streak,
+        "login-bonus": client.login_bonus,
         "notifications": client.notifications,
         "walking": client.walking_challenge_status,
     }
