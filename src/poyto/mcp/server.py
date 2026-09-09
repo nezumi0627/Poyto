@@ -31,6 +31,12 @@ def _client_call(method: str, /, *args: Any, **kwargs: Any) -> Any:
         return getattr(client, method)(*args, **kwargs)
 
 
+def _health_call() -> Any:
+    """Check API reachability without refreshing an unrelated saved session."""
+    with PoytoClient(auto_refresh=False) as client:
+        return client.health()
+
+
 def _account_snapshot() -> dict[str, Any]:
     """Fetch the most useful account state in one MCP round trip."""
     with PoytoClient() as client:
@@ -139,7 +145,7 @@ def build_server(
     @mcp.tool(annotations=read_annotations)
     def health() -> Any:
         """Check whether the POYP API is reachable."""
-        return _client_call("health")
+        return _health_call()
 
     @mcp.tool(annotations=read_annotations)
     def account_snapshot() -> dict[str, Any]:

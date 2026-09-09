@@ -4,6 +4,7 @@ import argparse
 
 import pytest
 
+from poyto.mcp import server as mcp_server
 from poyto.mcp.config import MCPSettings, build_parser, settings_from_args
 from poyto.mcp.server import require_confirmation
 
@@ -82,3 +83,25 @@ def test_mutation_requires_explicit_confirmation() -> None:
 
 def test_mutation_accepts_confirmation() -> None:
     require_confirmation(True, "sell")
+
+
+def test_health_call_disables_auto_refresh(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, object] = {}
+
+    class FakeClient:
+        def __init__(self, *, auto_refresh: bool) -> None:
+            seen["auto_refresh"] = auto_refresh
+
+        def __enter__(self) -> FakeClient:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def health(self) -> dict[str, bool]:
+            return {"ok": True}
+
+    monkeypatch.setattr(mcp_server, "PoytoClient", FakeClient)
+
+    assert mcp_server._health_call() == {"ok": True}
+    assert seen["auto_refresh"] is False

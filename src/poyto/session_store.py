@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
+from importlib import import_module
 from pathlib import Path
 from typing import Any
 
@@ -64,3 +67,32 @@ class SessionStore:
             self.path.unlink()
         except FileNotFoundError:
             pass
+
+    @contextmanager
+    def refresh_lock(self) -> Iterator[None]:
+        """Serialize refresh-token rotation across local Poyto processes."""
+        lock_path = self.path.with_suffix(self.path.suffix + ".lock")
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with lock_path.open("a+b") as handle:
+            if os.name == "nt":
+                msvcrt: Any = import_module("msvcrt")
+
+                handle.seek(0, os.SEEK_END)
+                if handle.tell() == 0:
+                    handle.write(b"\0")
+                    handle.flush()
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+                try:
+                    yield
+                finally:
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl: Any = import_module("fcntl")
+
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+                try:
+                    yield
+                finally:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
