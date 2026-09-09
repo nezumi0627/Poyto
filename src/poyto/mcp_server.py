@@ -34,10 +34,10 @@ def build_server(*, host: str = "127.0.0.1", port: int = 8765) -> Any:
         "Poyto",
         instructions=(
             "Use Poyto to inspect a POYP account and markets. Read operations may be run "
-            "directly. Buy/sell tools require confirm=true and must only be used after the "
-            "user explicitly confirms the exact market, side/position and amount. Never ask "
-            "the user to paste access or refresh tokens into chat; authentication is loaded "
-            "from Poyto's local session/environment configuration."
+            "directly. State-changing tools require confirm=true and must only be used after "
+            "the user explicitly confirms the exact operation. Never ask the user to paste "
+            "access or refresh tokens into chat; authentication is loaded from Poyto's local "
+            "session/environment configuration."
         ),
         host=host,
         port=port,
@@ -116,6 +116,28 @@ def build_server(*, host: str = "127.0.0.1", port: int = 8765) -> Any:
             limit=max(1, min(limit, 100)),
             cursor=cursor,
         )
+
+    @mcp.tool()
+    def loss_gacha_status(market_id: str) -> Any:
+        """Check whether a resolved losing market is eligible for loss-gacha recovery."""
+        return _client_call("loss_gacha_status", market_id)
+
+    @mcp.tool()
+    def loss_gacha_ticket(market_id: str, confirm: bool = False) -> Any:
+        """Create a short-lived loss-gacha ticket. Requires explicit confirm=true."""
+        _require_confirmation(confirm, "loss_gacha_ticket")
+        return _client_call("create_loss_gacha_ticket", market_id)
+
+    @mcp.tool()
+    def loss_gacha_claim(
+        market_id: str,
+        ticket_id: str,
+        kind: str = "video_gacha",
+        confirm: bool = False,
+    ) -> Any:
+        """Claim an eligible loss-gacha reward after the required reward flow has completed."""
+        _require_confirmation(confirm, "loss_gacha_claim")
+        return _client_call("claim_loss_gacha", market_id, ticket_id, kind=kind)
 
     @mcp.tool()
     def buy(
