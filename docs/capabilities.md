@@ -19,19 +19,19 @@ Measured by CI with `python scripts/code_stats.py`:
 
 | Area | Files | Physical lines | Non-blank lines |
 | --- | ---: | ---: | ---: |
-| Core `src/poyto/*.py` | 20 | 2,878 | 2,492 |
+| Core `src/poyto/*.py` | 20 | 2,897 | 2,511 |
 | Resource wrappers `src/poyto/resources/*.py` | 7 | 485 | 400 |
-| **Source total** | **27** | **3,363** | **2,892** |
-| Tests | 9 | 1,072 | 870 |
+| **Source total** | **27** | **3,382** | **2,911** |
+| Tests | 10 | 1,250 | 1,020 |
 
 Per-source-file snapshot:
 
 | File | Lines | Non-blank | Main responsibility |
 | --- | ---: | ---: | --- |
-| `src/poyto/control_exec.py` | 379 | 344 | Codex-style Linux command sessions and stdin continuation |
+| `src/poyto/control_exec.py` | 380 | 345 | Codex-style Linux command sessions and stdin continuation |
 | `src/poyto/control_fs.py` | 306 | 272 | bounded root-scoped file reads and patch application |
 | `src/poyto/mcp_server.py` | 295 | 256 | Poyto MCP tool surface and composable server builder |
-| `src/poyto/control_plugin.py` | 256 | 223 | authenticated Poyto Server Control plugin surface |
+| `src/poyto/control_plugin.py` | 274 | 241 | authenticated Poyto Server Control plugin surface |
 | `src/poyto/_http.py` | 215 | 191 | HTTP transport, headers, auth exchange/refresh/logout |
 | `src/poyto/auto.py` | 198 | 179 | credential loading, persistence, auto-refresh, 401 retry |
 | `src/poyto/cli_dispatch.py` | 187 | 174 | CLI command execution |
@@ -73,6 +73,15 @@ These values are a snapshot, not a marketing metric. `python scripts/code_stats.
 | Remote global logout | `logout(local_only=False)` | **Observed** |
 | Local-only logout | `logout(local_only=True)` | Local feature |
 | Inspect token/session shape without leaking secrets | `session_info()`, `token_kind()` | Local feature |
+
+Manual Android session extraction over ADB + `su` was verified on an already
+logged-in rooted emulator on 2026-09-09. The observed `RKStorage` database held
+a Supabase session with access and refresh tokens. The [README procedure](../README.md#android-adb--su-session-extraction)
+uses `scripts/extract_android_session.py` to export only session fields into a
+private file for the existing token-file login. The standalone script uses ADB +
+`su`, supports device selection, and never overwrites an existing session file.
+This is a local extraction observation, not evidence of credential validity,
+initial Apple login automation, or storage compatibility across app versions.
 
 Critical boundary: refresh-token issuance is established, while the exact POYP refresh exchange is not. The refresh request follows standard Supabase/GoTrue behavior and remains inferred.
 
@@ -153,6 +162,16 @@ State-changing commands require explicit `--yes` where defined.
 Poyto additionally implements credential-source priority, environment configuration, token-file parsing, configurable hosts/timeouts, reusable device metadata headers, context-manager support, `py.typed`, normalized API exceptions, secret-masked session inspection, network-free MockTransport tests, Ruff, mypy, package build and Python 3.10–3.14 CI.
 
 The Docker image also includes the standalone **Poyto Server Control** custom MCP app. It exposes Poyto tools plus `read`, `apply_patch`, `exec_command`, and `write_stdin`; supports independent Bearer authentication for generic MCP clients, a loopback-only Secure MCP Tunnel mode for direct ChatGPT use, bounded background command sessions, configured file roots, and an explicitly opt-in Docker host-control overlay using `nsenter`. These are local administration capabilities, not POYP API evidence.
+
+The same control surface also supports `poyto-plugin --transport stdio` for a
+tunnel-managed subprocess or local plugin host, without an HTTP token/listener.
+Offline MCP tests cover initialization, discovery, root-scoped file editing,
+real shell execution, HTTP auth rejection/success and stateless JSON forwarding.
+These prove local behavior, not a live ChatGPT/Tunnel connection or new POYP routes.
+A separate authorized live check on 2026-09-09 established ChatGPT Web discovery,
+shell/CLI execution, test-file write/read and an authenticated balance read via
+Secure MCP Tunnel. No POYP mutation was performed. See
+[Web registration and verification](chatgpt-web.md).
 
 ## Raw HTTP escape hatch
 

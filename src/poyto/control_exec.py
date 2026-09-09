@@ -47,6 +47,7 @@ def _child_environment() -> dict[str, str]:
         "POYTO_PLUGIN_TOKEN",
         "OPENAI_API_KEY",
         "OPENAI_TUNNEL_API_KEY",
+        "CONTROL_PLANE_API_KEY",
         "CLOUDFLARE_API_TOKEN",
         "CLOUDFLARE_API_KEY",
         "POYTO_TOKEN",

@@ -36,6 +36,19 @@ Poyto currently covers the major supported POYP HTTP surfaces:
 
 See [Capability inventory](docs/capabilities.md) for the per-file breakdown and evidence level of every major feature.
 
+## Use from ChatGPT Web
+
+別の Linux マシンへの導入は **[日本語セットアップ手順](docs/setup-ja.md)** を参照してください。セッション移行、Tunnel 作成、ChatGPT 登録、常駐・自動起動、Docker 構成を説明しています。
+
+Poyto Server Control exposes POYP tools, file edits and shell execution directly
+through [OpenAI Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels).
+Chat On Steroids is an interaction-model reference only, not a dependency.
+Use `poyto-plugin --transport stdio` as the tunnel subprocess, or the Docker
+loopback HTTP overlay. Follow [ChatGPT Web setup](docs/chatgpt-web.md) to configure
+the tunnel and register the connection; writes are supported when the ChatGPT
+workspace permits them. The CLI is available through the shell for operations
+without a dedicated MCP wrapper.
+
 ## What is not proven
 
 Poyto explicitly tracks behavior that is not sufficiently established instead of guessing it. Important examples include:
@@ -175,7 +188,7 @@ Token files may be plaintext, dotenv, or JSON. You can also use `token_file="tok
 
 ## Persistent login
 
-For a first bootstrap, the currently reliable path is to import the POYP authentication response from a `.har` or `.har.zip` capture made from an account/device you are authorized to use:
+For a first bootstrap, import the POYP authentication response from a `.har` or `.har.zip` capture made from an account/device you are authorized to use. If your Android device is already logged in and has working `su`, you can instead [extract its saved session over ADB](#android-adb--su-session-extraction) without a HAR capture.
 
 ```powershell
 poyto login --har "capture.har.zip"
@@ -209,6 +222,73 @@ Other:   $XDG_STATE_HOME/poyto/session.json
 `POYTO_SESSION_FILE` overrides the location.
 
 Real HAR captures can contain cookies, authorization headers, tokens, device identifiers, and unrelated private traffic. Keep them outside the repository and do not attach them to issues or CI logs.
+
+### Android ADB + su session extraction
+
+This procedure was verified on an already logged-in, rooted Android emulator on
+2026-09-09. It reads POYP's saved session, not Apple credentials, and does not log
+the app out. The observed storage location and schema are app-version-specific;
+this is not a guaranteed method for every Android build or a way to perform the
+initial Apple login.
+
+Prerequisites: your own authorized POYP account is logged in in `com.poyp.poyp`,
+ADB is installed on the Linux host, and `su` works on the device. The standalone
+script uses only the Python 3.10+ standard library; installing Poyto is not needed
+for extraction.
+
+From the repository root, run:
+
+```bash
+python3 scripts/extract_android_session.py
+```
+
+With exactly one attached device, the script selects it automatically and checks
+root access. Accept the Android USB-debugging/root prompt if shown, then rerun.
+Keep the app idle during extraction. It saves credentials with mode `0600` to
+`$XDG_STATE_HOME/poyto/android-session.json`, or
+`~/.local/state/poyto/android-session.json` when `XDG_STATE_HOME` is unset.
+If that default filename already exists, a new uniquely named file is created;
+existing credentials are never overwritten. The script prints the saved path and
+an import command, not the token values.
+
+To choose a device or output file:
+
+```bash
+adb devices -l
+python3 scripts/extract_android_session.py --serial DEVICE_SERIAL
+python3 scripts/extract_android_session.py --output /absolute/private/path/session.json
+```
+
+`ANDROID_SERIAL` is also supported. Replace `DEVICE_SERIAL` with the intended
+serial shown by ADB. An explicit `--output` must not already exist and must be
+outside this repository.
+
+The script checks for pending journal/WAL bytes and changes between two database
+reads. If the app is writing, leave it idle and retry. The raw database is parsed
+in a private temporary directory under `/tmp`, removed when parsing finishes;
+only the session credentials and expiry fields remain in the output. The script
+makes no POYP network calls, changes no Android files, and does not import into
+or overwrite Poyto's active session automatically. Changed/encrypted app storage
+is not supported; do not assume another storage format when extraction fails.
+
+After extraction, use the exact path printed by the script to import into the
+Poyto installation used by your plugin. For a checkout with `.venv`:
+
+```bash
+.venv/bin/poyto login @/absolute/path/printed/by/the/script.json
+.venv/bin/poyto balances
+```
+
+Import and plugin must run as the same Linux user with the same
+`POYTO_SESSION_FILE` setting. Docker has a separate session store: mount the
+extracted JSON read-only and import it into the container's persistent `/data`
+volume, as in the HAR bootstrap above, using `poyto login @/tmp/session.json`.
+
+Extraction alone does not prove that the server still accepts the credentials.
+An expired access token may be renewed by Poyto if the refresh token remains valid;
+the `balances` call verifies access and may rotate the saved credentials. Do not
+re-import an old extraction after rotation. Keep the extracted file outside Git and
+chat, and remove it after successful import if you no longer need the extra copy.
 
 ## Environment variables
 

@@ -4,7 +4,30 @@ This file is the canonical **do-not-claim** list for Poyto.
 
 If a behavior is listed here, the project either lacks sufficient POYP evidence for it, has only partial evidence, or intentionally does not implement it. New evidence should move an item out of this file only after the request/response shape is established or independently documented and covered by tests.
 
+## ChatGPT / plugin deployment gaps
+
+The control plugin's local stdio and HTTP behavior is covered by offline tests.
+A particular ChatGPT workspace's tunnel association, runtime credentials,
+connection registration, write permissions and end-to-end tool invocation must
+still be checked in that workspace. One authorized workspace passed discovery,
+file-write/read, shell/CLI and authenticated balance-read checks on 2026-09-09;
+that does not establish all plans, workspaces or account mutations. A local plugin manifest or passing transport
+test is not evidence that ChatGPT has connected. Shell tools remain write-capable.
+Secure MCP Tunnel is a private connection path; public plugin publication is not
+provided by the tunnel setup. See [ChatGPT Web setup](chatgpt-web.md).
+
 ## Authentication gaps
+
+### Android saved-session extraction is version-specific
+
+ADB + `su` extraction from POYP's `RKStorage` was verified on an already logged-in
+rooted emulator; see the [README procedure](../README.md#android-adb--su-session-extraction).
+Non-root access, other Android users/profiles, encrypted or changed storage, and
+consistent snapshots during app writes are not established. The extraction script
+rejects pending journal/WAL bytes and changing main-database reads; this is not a
+transactional snapshot guarantee. Extracting a token
+pair does not establish that either credential is still accepted by POYP, and
+does not automate the initial Apple login.
 
 ### Refresh-token exchange is not directly established
 

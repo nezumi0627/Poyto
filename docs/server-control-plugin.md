@@ -1,6 +1,6 @@
 # Poyto Server Control plugin
 
-`poyto-plugin` packages Poyto's POYP tools and a small Linux command bridge behind one standalone Streamable HTTP MCP endpoint. It can be registered directly as a ChatGPT custom MCP app; Chat On Steroids is not required.
+`poyto-plugin` packages Poyto's POYP tools and a small Linux command bridge behind one standalone MCP server (Streamable HTTP or stdio). It can be registered directly as a ChatGPT custom MCP app; Chat On Steroids is not required.
 
 ## Tool model
 
@@ -14,9 +14,22 @@ The server exposes the normal Poyto account/market/mutation tools plus:
 
 The names and interaction model intentionally follow familiar Codex/Chat On Steroids Core conventions so the model does not need a novel terminal abstraction. This is an implementation reference only, not a runtime dependency.
 
+## Local stdio / tunnel subprocess
+
+`poyto-plugin --transport stdio` exposes the same account, file and shell tools
+through the parent process's pipes. It opens no HTTP listener and does not create
+an HTTP Bearer token. From a source checkout, use
+`bash /absolute/path/to/Poyto/scripts/run-plugin-stdio.sh` after installing
+`.[agent]` in `.venv`. The launcher defaults approved file roots to that checkout.
+Native commands run with the launching user's permissions.
+
+For the full Tunnel ID, runtime key, profile and ChatGPT registration procedure,
+see [ChatGPT Web setup](chatgpt-web.md). Local plugin installation and Web
+registration are separate steps.
+
 ## Authentication
 
-HTTP mode requires a static Bearer token. If `POYTO_PLUGIN_TOKEN` is unset, `poyto-plugin` creates a random token in `POYTO_PLUGIN_TOKEN_FILE` (default `/data/control-plugin.token`) with mode `0600`.
+HTTP mode requires a static Bearer token unless explicitly configured for loopback-only tunnel access. Anonymous public binds are rejected by both the CLI and server builder. If `POYTO_PLUGIN_TOKEN` is unset, `poyto-plugin` creates a random token in `POYTO_PLUGIN_TOKEN_FILE` (default `/data/control-plugin.token`) with mode `0600`.
 
 Print it only when configuring the client:
 
@@ -69,3 +82,5 @@ In this mode `exec_command` uses `nsenter` into PID 1's mount/UTS/IPC/network/PI
 ## Runtime separation
 
 Android, ADB and Frida are development-time verification tools only. The production/server Docker image has no dependency on a connected Android device.
+
+HTTP responses are stateless JSON for tunnel forwarding; shell sessions remain process-local. Restarting the server loses those sessions. The command environment excludes `CONTROL_PLANE_API_KEY` as well as the other connector keys. This is not a filesystem or process-isolation boundary.

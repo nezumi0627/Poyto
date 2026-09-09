@@ -95,6 +95,8 @@ def build_control_plugin(
     token: str | None = None,
     authenticated: bool = True,
 ) -> Any:
+    if not authenticated and host not in {"127.0.0.1", "localhost", "::1"}:
+        raise ValueError("Unauthenticated control requires a loopback bind")
     try:
         from mcp.types import ToolAnnotations
     except ImportError as exc:  # pragma: no cover - optional dependency
@@ -102,6 +104,9 @@ def build_control_plugin(
 
     paths = ControlPaths.from_env()
     auth = _auth_kwargs(token or ensure_plugin_token()) if authenticated else {}
+    # Tunnel forwarding must not depend on a sticky HTTP MCP session. Shell
+    # session IDs still belong to this server process and survive HTTP requests.
+    auth.update(stateless_http=True, json_response=True)
     extra = (
         "This endpoint is the Poyto Server Control plugin. It also exposes Codex-style Linux "
         "server primitives named read, apply_patch, exec_command and write_stdin. File tools "
@@ -109,7 +114,12 @@ def build_control_plugin(
         "inside an approved root but is intentionally not filesystem-sandboxed after launch, "
         "so callers should treat command access as the authority of the configured container or host mode. "
         f"Command execution mode is {paths.exec_mode!r}. Use the host client's web/search tools "
-        "for public Internet research; this plugin is for POYP state and the attached Linux server."
+        "for public Internet research; this plugin is for POYP state and the attached Linux server. "
+        "Prefer dedicated Poyto tools. If a Poyto operation has no dedicated tool, use "
+        "exec_command to run the installed poyto CLI (poyto --help lists commands). "
+        "Authorized CLI mutations require --yes. Shell execution is also a write-capable "
+        "tool and does not override the host client's tool permissions. Never print "
+        "session files, tokens or private traffic through file or command tools."
     )
     mcp = build_poyto_server(
         host=host,
@@ -212,8 +222,9 @@ def build_control_plugin(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Expose Poyto plus Linux server control as a standalone Streamable HTTP MCP app"
+        description="Expose Poyto plus Linux server control as a standalone MCP app"
     )
+    parser.add_argument("--transport", choices=("stdio", "streamable-http"), default="streamable-http")
     parser.add_argument("--host", default=os.getenv("POYTO_PLUGIN_HOST", "127.0.0.1"))
     parser.add_argument("--port", type=int, default=int(os.getenv("POYTO_PLUGIN_PORT", "8765")))
     parser.add_argument(
@@ -231,6 +242,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    if args.transport == "stdio":
+        # The parent process owns the pipes; no network listener or HTTP token
+        # is needed, including when tunnel-client launches this process.
+        build_control_plugin(authenticated=False).run(transport="stdio")
+        return
     loopback = args.host in {"127.0.0.1", "localhost", "::1"}
     if args.insecure_no_auth and not loopback:
         raise SystemExit("--insecure-no-auth is only allowed on a loopback bind")

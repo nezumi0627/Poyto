@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
+import httpx
 import pytest
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
 
-from poyto.control_exec import ExecManager
+from poyto.control_exec import ExecManager, _child_environment
 from poyto.control_fs import ControlPatcher, ControlReader
 from poyto.control_paths import ControlPathError, ControlPaths
-from poyto.control_plugin import build_control_plugin, ensure_plugin_token
+from poyto.control_plugin import build_control_plugin, ensure_plugin_token, main
 
 
 def _paths(monkeypatch: pytest.MonkeyPatch, root: Path) -> ControlPaths:
@@ -124,3 +128,96 @@ async def test_control_plugin_exposes_poyto_and_core_tools(
     assert tools["read"].annotations and tools["read"].annotations.readOnlyHint is True
     assert tools["exec_command"].annotations and tools["exec_command"].annotations.readOnlyHint is False
     assert tools["buy"].annotations and tools["buy"].annotations.readOnlyHint is False
+
+
+def test_tunnel_key_is_not_in_command_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CONTROL_PLANE_API_KEY", "synthetic-tunnel-key")
+    assert "CONTROL_PLANE_API_KEY" not in _child_environment()
+
+
+@pytest.mark.parametrize("host", ["0.0.0.0", "::", "192.0.2.1"])
+def test_builder_rejects_anonymous_public_listener(host: str) -> None:
+    with pytest.raises(ValueError, match="loopback"):
+        build_control_plugin(host=host, authenticated=False)
+
+
+def test_cli_rejects_anonymous_public_listener() -> None:
+    with pytest.raises(SystemExit, match="loopback"):
+        main(["--host", "0.0.0.0", "--insecure-no-auth"])
+
+
+@pytest.mark.anyio
+async def test_http_auth_and_stateless_tool_calls(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _paths(monkeypatch, tmp_path)
+    token = "synthetic-plugin-token-for-testing"
+    server = build_control_plugin(token=token)
+    app = server.streamable_http_app()
+    async with server.session_manager.run():
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:8765",
+            headers={"Accept": "application/json, text/event-stream"},
+        ) as client:
+            request = {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+            assert (await client.post("/mcp", json=request)).status_code == 401
+            assert (await client.post(
+                "/mcp", json=request, headers={"Authorization": "Bearer wrong"},
+            )).status_code == 401
+            client.headers["Authorization"] = f"Bearer {token}"
+            result = await client.post("/mcp", json=request)
+            assert result.status_code == 200
+            assert "mcp-session-id" not in result.headers
+            assert "exec_command" in {tool["name"] for tool in result.json()["result"]["tools"]}
+            # A separate request needs no sticky HTTP session and performs a real
+            # harmless shell write. No POYP account or network calls are used.
+            response = await client.post("/mcp", json={
+                "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                "params": {"name": "exec_command", "arguments": {
+                    "cmd": "printf connected > smoke.txt", "workdir": str(tmp_path),
+                }},
+            })
+            assert response.status_code == 200
+            assert not response.json()["result"].get("isError")
+            assert (tmp_path / "smoke.txt").read_text() == "connected"
+
+
+@pytest.mark.anyio
+async def test_stdio_plugin_real_roundtrip(tmp_path: Path) -> None:
+    # The same subprocess transport tunnel-client can launch. Force a nonexistent
+    # token path to prove stdio needs neither an HTTP token nor /data access.
+    params = StdioServerParameters(
+        command=sys.executable,
+        args=["-m", "poyto.control_plugin", "--transport", "stdio"],
+        env={
+            "POYTO_PLUGIN_ROOTS": str(tmp_path),
+            "POYTO_PLUGIN_EXEC_MODE": "container",
+            "POYTO_PLUGIN_TOKEN_FILE": str(tmp_path / "unused" / "token"),
+            "POYTO_SESSION_FILE": str(tmp_path / "unused" / "session.json"),
+        },
+    )
+    async with stdio_client(params) as (reader, writer):
+        async with ClientSession(reader, writer) as session:
+            initialized = await session.initialize()
+            assert initialized.serverInfo.name == "Poyto Server Control"
+            listing = await session.list_tools()
+            tools = {tool.name: tool for tool in listing.tools}
+            for name in ["apply_patch", "exec_command", "write_stdin", "buy", "sell"]:
+                assert tools[name].annotations and tools[name].annotations.readOnlyHint is False
+            patched = await session.call_tool("apply_patch", {"patch": (
+                "*** Begin Patch\n*** Add File: smoke.txt\n+patched\n*** End Patch"
+            )})
+            assert not patched.isError
+            read = await session.call_tool("read", {"paths": ["smoke.txt"]})
+            assert not read.isError
+            assert any("patched" in getattr(item, "text", "") for item in read.content)
+            executed = await session.call_tool("exec_command", {
+                "cmd": "printf shell >> smoke.txt", "yield_time_ms": 1000,
+            })
+            assert not executed.isError
+            assert (tmp_path / "smoke.txt").read_text() == "patched\nshell"
+            denied = await session.call_tool("buy", {
+                "market_id": "market-id", "position_index": 0, "point_amount": 1,
+            })
+            assert denied.isError  # confirmation fails before loading credentials
+    assert not (tmp_path / "unused").exists()

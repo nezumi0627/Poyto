@@ -24,6 +24,8 @@ The Docker image includes `poyto-plugin`, a standalone MCP app that combines Poy
 - Keep the plugin private. For ChatGPT Web, use Secure MCP Tunnel for private/on-prem access or a properly authenticated HTTPS/OAuth deployment. Do not expose host-control mode as an anonymous public endpoint.
 - `compose.secure-tunnel.yaml` deliberately disables the plugin's static Bearer token, but also uses host networking and binds the MCP server only to `127.0.0.1`. Use that overlay only when Secure MCP Tunnel is the intended ingress; do not change its bind to a public interface.
 
+`poyto-plugin --transport stdio` uses parent-owned pipes and creates no HTTP token or listener. Native stdio commands run with the launching OS user's permissions. The tunnel runtime key (`CONTROL_PLANE_API_KEY`) is omitted from shell child environments; this does not isolate the shell from other files or processes accessible to that user.
+
 Android/ADB/Frida are development-time verification tools only and are not part of the production server-control runtime.
 
 ## Reporting a security issue

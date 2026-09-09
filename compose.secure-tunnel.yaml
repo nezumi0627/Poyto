@@ -5,6 +5,8 @@ services:
     # token; the Secure MCP Tunnel is the only intended ingress path.
     network_mode: host
     ports: !reset []
+    environment:
+      POYTO_PLUGIN_PORT: ${POYTO_PLUGIN_TUNNEL_PORT:-8765}
     command:
       - poyto-plugin
       - --host

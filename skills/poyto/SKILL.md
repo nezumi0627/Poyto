@@ -1,3 +1,8 @@
+---
+name: poyto
+description: Inspect POYP accounts, markets and portfolios, and perform user-authorized operations through Poyto MCP tools or the installed CLI.
+---
+
 # Poyto Skill
 
 Use Poyto when the user wants to inspect or operate POYP from an AI conversation or coding-agent harness. This skill is provider-agnostic: GPT-family, Claude-family, OpenCode, local LLM agents, and other tool-using models should follow the same instructions.
@@ -113,6 +118,11 @@ Lengthen intervals for inactive markets and shorten them near settlement or afte
 ## CLI fallback
 
 If MCP is unavailable but shell execution exists:
+
+The shell is write-capable too. Use it for missing tool coverage when the host
+permits execution; it does not bypass disabled write tools or denied operations.
+For Poyto Server Control, call `exec_command` and collect background output with
+`write_stdin` when a `session_id` is returned. Never print session files or tokens.
 
 ```bash
 poyto profile
