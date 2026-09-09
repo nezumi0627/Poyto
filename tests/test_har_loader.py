@@ -86,6 +86,15 @@ def test_login_from_har_persists_session(tmp_path) -> None:
     assert stored.refresh_token == "session-refresh"
 
 
+def test_non_poyp_session_response_is_rejected() -> None:
+    capture = _har()
+    entries = capture["log"]["entries"]
+    entries[0]["request"]["url"] = "https://example.com/auth/v1/token"
+
+    with pytest.raises(CredentialError, match="POYP session response"):
+        extract_session_from_har(capture)
+
+
 def test_missing_session_is_rejected() -> None:
     with pytest.raises(CredentialError, match="session response"):
         extract_session_from_har({"log": {"entries": []}})
