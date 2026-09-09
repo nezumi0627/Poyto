@@ -5,11 +5,55 @@ from typing import Any
 
 from ..auto import PoytoClient
 
+_READ_TOOL_NAMES = (
+    "mcp_info",
+    "health",
+    "account_snapshot",
+    "profile",
+    "balances",
+    "portfolio",
+    "markets",
+    "market",
+    "market_context",
+    "market_activity",
+    "asset_price",
+    "transactions",
+    "login_bonus",
+    "unread_notification_count",
+    "loss_gacha_status",
+)
+_MUTATION_TOOL_NAMES = ("loss_gacha_ticket", "loss_gacha_claim", "buy", "sell")
+
 
 def _client_call(method: str, /, *args: Any, **kwargs: Any) -> Any:
     """Run one Poyto call using the normal persisted-session policy."""
     with PoytoClient() as client:
         return getattr(client, method)(*args, **kwargs)
+
+
+def _account_snapshot() -> dict[str, Any]:
+    """Fetch the most useful account state in one MCP round trip."""
+    with PoytoClient() as client:
+        return {
+            "profile": client.profile(),
+            "balances": client.balances(),
+            "portfolio": client.portfolio(),
+            "login_bonus": client.login_bonus(),
+            "unread_notification_count": client.unread_notification_count(),
+        }
+
+
+def _market_context(market_id: str, activity_limit: int = 20) -> dict[str, Any]:
+    """Fetch market detail plus recent activity in one MCP round trip."""
+    with PoytoClient() as client:
+        return {
+            "market": client.market(market_id),
+            "activity": client.market_activity(
+                market_id,
+                limit=max(1, min(activity_limit, 100)),
+                types="all",
+            ),
+        }
 
 
 def require_confirmation(confirm: bool, action: str) -> None:
@@ -30,11 +74,7 @@ def build_server(
     extra_instructions: str | None = None,
     fastmcp_kwargs: Mapping[str, Any] | None = None,
 ) -> Any:
-    """Build Poyto's optional MCP server.
-
-    MCP remains an optional dependency so importing the normal Python client does not
-    pull the MCP runtime into applications that do not use it.
-    """
+    """Build Poyto's optional MCP server."""
     try:
         from mcp.server.fastmcp import FastMCP
         from mcp.types import ToolAnnotations
@@ -53,10 +93,12 @@ def build_server(
     )
     instructions = (
         "Use Poyto as the authoritative source for POYP account state, balances, markets, "
-        "portfolio and POYP activity. For current real-world evidence, use the host model's "
-        "web/search capability when available and keep external research separate from POYP "
-        "data. Never ask the user to paste access or refresh tokens into chat; credentials are "
-        "loaded from Poyto's normal local session/environment configuration. "
+        "portfolio and POYP activity. Prefer account_snapshot for a general account overview "
+        "and market_context when investigating one market because they reduce MCP round trips. "
+        "Use the smallest dedicated tool that answers the question. For current real-world "
+        "evidence, use the host model's web/search capability when available and keep external "
+        "research separate from POYP data. Never ask the user to paste access or refresh tokens "
+        "into chat; credentials are loaded from Poyto's local session/environment configuration. "
         + mode
     )
     if extra_instructions:
@@ -78,9 +120,31 @@ def build_server(
     )
 
     @mcp.tool(annotations=read_annotations)
+    def mcp_info() -> dict[str, Any]:
+        """Describe Poyto MCP mode and available tool groups without exposing secrets."""
+        return {
+            "server": server_name,
+            "read_only": read_only,
+            "recommended_overview_tool": "account_snapshot",
+            "recommended_market_tool": "market_context",
+            "read_tools": list(_READ_TOOL_NAMES),
+            "mutation_tools": [] if read_only else list(_MUTATION_TOOL_NAMES),
+            "mutation_policy": (
+                "disabled"
+                if read_only
+                else "Each account-changing tool requires explicit confirm=true."
+            ),
+        }
+
+    @mcp.tool(annotations=read_annotations)
     def health() -> Any:
         """Check whether the POYP API is reachable."""
         return _client_call("health")
+
+    @mcp.tool(annotations=read_annotations)
+    def account_snapshot() -> dict[str, Any]:
+        """Get profile, balances, portfolio, login bonus and unread count together."""
+        return _account_snapshot()
 
     @mcp.tool(annotations=read_annotations)
     def profile() -> Any:
@@ -117,6 +181,11 @@ def build_server(
     def market(market_id: str) -> Any:
         """Get details for one POYP market."""
         return _client_call("market", market_id)
+
+    @mcp.tool(annotations=read_annotations)
+    def market_context(market_id: str, activity_limit: int = 20) -> dict[str, Any]:
+        """Get one market plus recent activity together for faster analysis."""
+        return _market_context(market_id, activity_limit)
 
     @mcp.tool(annotations=read_annotations)
     def market_activity(market_id: str, limit: int = 50, types: str = "all") -> Any:
