@@ -12,6 +12,7 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+.analysis/
 *.har
 *.har.zip
 .DS_Store
