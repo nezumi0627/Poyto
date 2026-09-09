@@ -105,6 +105,19 @@ def build_parser() -> argparse.ArgumentParser:
     ad.add_argument("--source", default="watch_ad")
     ad.add_argument("--yes", action="store_true")
 
+    loss_status = sub.add_parser("loss-gacha-status")
+    loss_status.add_argument("market_id")
+
+    loss_ticket = sub.add_parser("loss-gacha-ticket")
+    loss_ticket.add_argument("market_id")
+    loss_ticket.add_argument("--yes", action="store_true")
+
+    loss_claim = sub.add_parser("loss-gacha-claim")
+    loss_claim.add_argument("market_id")
+    loss_claim.add_argument("ticket_id")
+    loss_claim.add_argument("--kind", default="video_gacha")
+    loss_claim.add_argument("--yes", action="store_true")
+
     user = sub.add_parser("user")
     user.add_argument("user_id")
     user.add_argument("--tab", default="active")

@@ -112,6 +112,69 @@ def test_ad_reward_claim_matches_observed_success_shape():
     assert result["dailyViewLimit"] == 5
 
 
+def test_loss_gacha_flow_matches_observed_shapes():
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.url.path.endswith("/status"):
+            return httpx.Response(
+                200,
+                json={
+                    "mode": "gacha_mini",
+                    "reason": None,
+                    "gachaExpiresAt": "2026-09-09T21:04:16.783Z",
+                    "publicRange": {"min": 5, "max": 10},
+                },
+            )
+        if request.url.path.endswith("/ticket"):
+            return httpx.Response(
+                200,
+                json={
+                    "ticketId": "00000000-0000-0000-0000-000000000001",
+                    "expiresAt": "2026-09-09T04:04:09+00:00",
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "grantedPoints": 10,
+                "grantedCoins": 0,
+                "roll": "jackpot",
+                "balanceAfter": 20,
+            },
+        )
+
+    with isolated_client(access_token="token", transport=httpx.MockTransport(handler)) as client:
+        status = client.loss_gacha_status("market-id")
+        ticket = client.create_loss_gacha_ticket("market-id")
+        claim = client.claim_loss_gacha(
+            "market-id",
+            ticket["ticketId"],
+            kind="video_gacha",
+        )
+
+    assert seen[0].method == "GET"
+    assert seen[0].url.path == "/api/me/loss-gacha/status"
+    assert seen[0].url.params["marketId"] == "market-id"
+    assert seen[1].method == "POST"
+    assert seen[1].url.path == "/api/me/loss-gacha/ticket"
+    assert json.loads(seen[1].content) == {"marketId": "market-id"}
+    assert seen[2].method == "POST"
+    assert seen[2].url.path == "/api/me/loss-gacha/claim"
+    assert json.loads(seen[2].content) == {
+        "marketId": "market-id",
+        "kind": "video_gacha",
+        "ticketId": "00000000-0000-0000-0000-000000000001",
+    }
+    assert status["mode"] == "gacha_mini"
+    assert status["publicRange"] == {"min": 5, "max": 10}
+    assert ticket["ticketId"] == "00000000-0000-0000-0000-000000000001"
+    assert claim["grantedPoints"] == 10
+    assert claim["roll"] == "jackpot"
+    assert claim["balanceAfter"] == 20
+
+
 def test_apple_login_shape(recorder):
     seen, transport = recorder
     with isolated_client(transport=transport) as client:
