@@ -25,20 +25,31 @@ MCP does not receive access tokens as tool arguments. It uses the same Poyto ses
 pip install -e '.[agent]'
 ```
 
-## Local stdio
+## Recommended local setup
 
-The safest/default transport is stdio:
+The default stdio transport is the easiest and safest local integration:
 
 ```bash
 poyto-mcp
 ```
 
-This is suitable for local MCP hosts that launch the server as a subprocess.
+Most desktop MCP hosts should launch that command directly. No TCP port, public listener, or separate authentication layer is needed for stdio.
 
-Equivalent explicit command:
+Check the effective non-secret MCP configuration before connecting a host:
 
 ```bash
-poyto-mcp --transport stdio
+poyto-mcp --print-config
+```
+
+Example output:
+
+```json
+{
+  "host": "127.0.0.1",
+  "port": 8765,
+  "read_only": false,
+  "transport": "stdio"
+}
 ```
 
 ## Streamable HTTP
@@ -78,6 +89,16 @@ When read-only mode is enabled, account-changing tools are not registered at all
 
 Normal Poyto authentication settings such as `POYTO_SESSION_FILE` continue to apply.
 
+## Comfortable conversational tools
+
+Poyto includes a few aggregate tools so an MCP host does not need to spend several round trips collecting routine context.
+
+- `mcp_info`: shows server mode, available tool groups and mutation policy without exposing credentials.
+- `account_snapshot`: returns profile, balances, portfolio, login-bonus state and unread notification count together. Prefer this for questions like “今の状態を見て” or “残高と保有をまとめて”.
+- `market_context`: returns one market plus recent activity together. Prefer this before analysis of a specific market.
+
+Smaller dedicated tools remain available when only one datum is needed. This keeps quick requests cheap while making broader conversational requests much smoother.
+
 ## Tool policy
 
 Read tools include account/profile state, balances, portfolio, market discovery/detail/activity, POYP asset prices, transactions, login-bonus state, notification count and loss-gacha eligibility.
@@ -85,6 +106,17 @@ Read tools include account/profile state, balances, portfolio, market discovery/
 Mutation tools are only registered outside read-only mode. `buy`, `sell`, loss-gacha ticket creation and loss-gacha claims require `confirm=true`. The MCP server rejects the mutation otherwise.
 
 Tool annotations describe read-only/destructive/idempotent intent to capable MCP hosts. These annotations improve host behavior but are not treated as an authorization boundary; Poyto still enforces its own explicit confirmation requirement.
+
+## Suggested host behavior
+
+For the best conversational experience, an MCP host should:
+
+1. call `mcp_info` once when it needs to understand the server mode;
+2. prefer `account_snapshot` for general account questions;
+3. prefer `market_context` for one-market analysis;
+4. use `markets` only for discovery/listing;
+5. use external web/search tools for real-world evidence instead of treating POYP prices as factual news evidence;
+6. ask for explicit user confirmation immediately before any account-changing tool call.
 
 ## Web research
 
