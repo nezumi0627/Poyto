@@ -2,6 +2,32 @@
 
 Poyto loads and persists POYP sessions inside the library, so callers do not need to pass a token on every run.
 
+## Current practical login path
+
+As of 2026-09-09, the most reliable way to bootstrap a Poyto session is to capture traffic from an account/device you are authorized to use and import the POYP authentication response from a `.har` or `.har.zip` file. Poyto extracts the returned POYP/Supabase `access_token` and `refresh_token`, saves the session outside the repository, and can then keep the session alive through refresh without another HAR capture while the refresh credential remains valid.
+
+CLI:
+
+```powershell
+poyto login --har "capture.har.zip"
+poyto profile
+poyto balances
+```
+
+Python:
+
+```python
+from poyto import PoytoClient
+
+with PoytoClient() as client:
+    session = client.login_from_har("capture.har.zip")
+    print(client.profile())
+```
+
+The importer only reads response bodies containing a returned session. It deliberately ignores request-body `access_token` fields because the Apple provider exchange also uses that name for a different credential.
+
+HAR files can contain cookies, authorization headers, tokens, device identifiers, and unrelated private traffic. Keep real captures outside the repository and do not attach them to issues or CI logs.
+
 ## `token=`
 
 The simplest Python form is:
@@ -122,14 +148,14 @@ An explicitly supplied `refresh_token=` can accompany the selected source.
 
 ## Apple exchange
 
-The established POYP flow is:
+The established POYP exchange observed in authorized traffic is:
 
-1. Sign in with Apple produces an `id_token`, Apple access token, and nonce as required by the provider flow.
+1. Sign in with Apple produces an `id_token`, provider authorization credential, and nonce.
 2. The app exchanges those values with `https://auth.poyp.app/auth/v1/token?grant_type=id_token`.
-3. The response contains a Supabase access token and usually a refresh token.
-4. POYP API requests use the resulting bearer token.
+3. The response contains a Supabase access token and refresh token.
+4. POYP API requests use the returned bearer token.
 
-CLI:
+CLI when the Apple credentials are already available:
 
 ```powershell
 poyto login-apple --id-token "..." --apple-access-token "..." --nonce "..."
@@ -147,9 +173,15 @@ session = client.login_with_apple(
 
 Successful Apple login is persisted automatically.
 
+### HAR-less initial Apple login
+
+Automatically obtaining the initial Apple credentials without a capture is still **research in progress**. The main research direction is the Apple Web OAuth / Supabase authorize path, but it is not yet documented as a dependable POYP login flow.
+
+Until that is established, importing the authentication response from authorized POYP traffic is the reliable bootstrap method. Once a refresh token has been persisted, normal refresh can maintain the session without repeated HAR capture.
+
 ## Automatic refresh
 
-If a saved/file session contains both `expires_at` and a refresh token, `PoytoClient()` refreshes it when it is expired or within 60 seconds of expiry. If an authenticated API request later returns HTTP 401, Poyto refreshes once and retries the original request once when a refresh token is available.
+If a saved/file/HAR session contains both `expires_at` and a refresh token, `PoytoClient()` refreshes it when it is expired or within 60 seconds of expiry. If an authenticated API request later returns HTTP 401, Poyto refreshes once and retries the original request once when a refresh token is available.
 
 Manual refresh still works:
 
@@ -157,7 +189,7 @@ Manual refresh still works:
 client.refresh()
 ```
 
-Refresh-token rotation and the distinction between established POYP behavior and standard Supabase behavior are documented in [Refresh tokens](refresh-tokens.md).
+The POYP refresh exchange used by Poyto was live-verified on 2026-09-09 with an existing authorized refresh token. Refresh-token rotation and remaining unknown policy details are documented in [Refresh tokens](refresh-tokens.md).
 
 ## Session location
 
