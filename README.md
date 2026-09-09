@@ -192,6 +192,13 @@ Architecture details: [docs/architecture.md](docs/architecture.md).
 - [Security](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 
+## Contributors
+
+- [nezumi0627](https://github.com/nezumi0627) — project maintainer and original author
+- [tqmane](https://github.com/tqmane) — contributed the original Docker / ChatGPT MCP integration work in [PR #15](https://github.com/nezumi0627/Poyto/pull/15)
+
+See [CONTRIBUTORS.md](CONTRIBUTORS.md) for more details.
+
 ## Development
 
 ```bash
