@@ -19,6 +19,7 @@ def build_parser() -> argparse.ArgumentParser:
     login = sub.add_parser("login", help="save a POYP token locally")
     login.add_argument("login_token", nargs="?", help="literal token or token-file source")
     login.add_argument("--refresh-token", dest="login_refresh_token")
+    login.add_argument("--har", dest="login_har", help="import a POYP session from .har or .har.zip")
 
     apple = sub.add_parser("login-apple")
     apple.add_argument("--id-token")

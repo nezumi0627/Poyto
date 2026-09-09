@@ -18,7 +18,7 @@ If you are new to POYP, you can use the maintainer's referral link/code below. U
 
 Poyto currently covers the major supported POYP HTTP surfaces:
 
-- authentication with an existing token and Apple id-token login
+- authentication with an existing token, `.har` / `.har.zip` session import, and Apple id-token exchange when the Apple credentials are already available
 - local session persistence, expiry metadata, automatic refresh policy, and one-time 401 recovery
 - account profile, balances, portfolio/history, transactions, missions, streaks, campaigns, notifications, referral data, blocked users, and walking-challenge status
 - market listing/detail/related/auxiliary data, positions, activity, charts, and asset prices
@@ -30,13 +30,14 @@ Poyto currently covers the major supported POYP HTTP surfaces:
 - token files, environment configuration, masked session inspection, typed package metadata, and network-free regression tests
 - optional MCP server and reusable agent skill for conversational AI clients and scheduled automation hosts
 
-Current implementation snapshot: **21 Python source files / 1,718 physical lines / 1,443 non-blank lines**, plus **412 test lines**. See [Capability inventory](docs/capabilities.md) for the per-file breakdown and evidence level of every major feature.
+See [Capability inventory](docs/capabilities.md) for the per-file breakdown and evidence level of every major feature.
 
 ## What is not proven
 
 Poyto explicitly tracks behavior that is not sufficiently established instead of guessing it. Important examples include:
 
-- the exact refresh-token exchange remains implemented from standard Supabase/GoTrue behavior and is documented as inferred
+- automatically obtaining the initial Apple credentials without a HAR capture is still research in progress
+- POYP-specific refresh-token reuse windows, inactivity/session limits, simultaneous-refresh behavior, and all revoked/expired-token errors are not fully established
 - unlike-comment, market administration/creation/resolution, realtime sockets, direct messaging, arbitrary moderation controls, and many mutation routes are not currently supported
 - trading-engine formulas, settlement, slippage, fees, rate limits, anti-abuse behavior, and complete error schemas are unknown
 - ad-reward server-side eligibility/proof rules are unknown even though the `watch_ad` claim request and a successful response shape are implemented
@@ -59,6 +60,7 @@ It reports physical and non-blank lines for `src/poyto/**/*.py`, separates core 
 - Pythonic, responsibility-based package layout
 - `PoytoClient(token=...)` accepts literal tokens and plaintext/JSON/dotenv token files
 - first-class environment-variable configuration
+- HAR/HAR.zip session import for practical initial bootstrap from authorized POYP traffic captures
 - automatic saved-session loading and refresh-token rotation handling
 - one-time authenticated 401 refresh/retry
 - CLI parser and command execution split from library code
@@ -100,12 +102,28 @@ Token files may be plaintext, dotenv, or JSON. You can also use `token_file="tok
 
 ## Persistent login
 
+For a first bootstrap, the currently reliable path is to import the POYP authentication response from a `.har` or `.har.zip` capture made from an account/device you are authorized to use:
+
 ```powershell
-poyto login
+poyto login --har "capture.har.zip"
 poyto profile
 poyto balances
 poyto markets --limit 20
 ```
+
+Python code can do the same:
+
+```python
+from poyto import PoytoClient
+
+with PoytoClient() as client:
+    client.login_from_har("capture.har.zip")
+    print(client.profile())
+```
+
+The imported session is stored outside the repository. Once a refresh token is saved, Poyto can maintain the session through the live-verified POYP refresh exchange while that credential remains valid, so another HAR capture is not normally needed.
+
+You can also persist an access token manually with `poyto login` or the Python token APIs documented in [Authentication](docs/authentication.md).
 
 Default session locations:
 
@@ -117,6 +135,8 @@ Other:   $XDG_STATE_HOME/poyto/session.json
 
 `POYTO_SESSION_FILE` overrides the location.
 
+Real HAR captures can contain cookies, authorization headers, tokens, device identifiers, and unrelated private traffic. Keep them outside the repository and do not attach them to issues or CI logs.
+
 ## Environment variables
 
 Common variables include `POYTO_TOKEN`, `POYTO_ACCESS_TOKEN`, `POYTO_REFRESH_TOKEN`, `POYTO_TOKEN_FILE`, `POYTO_SESSION_FILE`, `POYTO_AUTO_REFRESH`, `POYTO_API_BASE`, `POYTO_AUTH_BASE`, `POYTO_TIMEOUT`, and device metadata variables. Historical `POYP_*` aliases remain supported. See [configuration](docs/configuration.md).
@@ -125,7 +145,7 @@ Common variables include `POYTO_TOKEN`, `POYTO_ACCESS_TOKEN`, `POYTO_REFRESH_TOK
 
 When expiry metadata and a refresh token are available, Poyto refreshes shortly before expiry and persists the newly returned access/refresh pair. If an authenticated POYP request receives HTTP 401, Poyto attempts one refresh and retries the request once.
 
-The refresh implementation follows the standard Supabase/GoTrue flow used by the authentication backend and is intentionally labeled **implemented/inferred** rather than guaranteed POYP behavior. See [refresh tokens](docs/refresh-tokens.md).
+The exchange used by Poyto — `POST https://auth.poyp.app/auth/v1/token?grant_type=refresh_token` with the refresh token in the JSON body — was live-verified on 2026-09-09 using an existing authorized POYP session, and the returned session successfully authenticated a subsequent POYP API request. Project-specific lifetime, reuse, concurrency, and invalidation policies remain partially unknown. See [refresh tokens](docs/refresh-tokens.md).
 
 ## API examples
 
@@ -156,13 +176,15 @@ poyto claim-ad-reward --yes
 config -> credentials/session -> HTTP transport -> resources -> high-level client -> CLI/MCP
 ```
 
-Resource methods live under `src/poyto/resources/`, transport/auth exchange under `_http.py`, lifecycle policy under `auto.py`, CLI parsing/execution in separate modules, and the optional conversational-agent bridge in `mcp_server.py`. See [architecture](docs/architecture.md).
+Resource methods live under `src/poyto/resources/`, transport/auth exchange under `_http.py`, lifecycle policy under `auto.py`, HAR session extraction under `har_loader.py`, CLI parsing/execution in separate modules, and the optional conversational-agent bridge in `mcp_server.py`. See [architecture](docs/architecture.md).
 
 ## Documentation
 
 - [Capability inventory and LOC breakdown](docs/capabilities.md)
 - [Known gaps and unverified behavior](docs/known-gaps.md)
 - [Observed endpoints](docs/endpoints.md)
+- [Android APK/Hermes endpoint inventory](docs/apk-endpoints.md)
+- [Endpoint inventory workflow](docs/endpoint-inventory.md)
 - [Configuration](docs/configuration.md)
 - [Authentication](docs/authentication.md)
 - [Refresh tokens](docs/refresh-tokens.md)
@@ -193,7 +215,7 @@ CI validates Python 3.10–3.14.
 
 ## Security
 
-Never commit access tokens, refresh tokens, identity tokens, cookies, session files, or stable device identifiers. Keep sensitive local debugging artifacts outside the repository.
+Never commit access tokens, refresh tokens, identity tokens, cookies, session files, HAR captures, or stable device identifiers. Keep sensitive local debugging artifacts outside the repository.
 
 ## License
 
