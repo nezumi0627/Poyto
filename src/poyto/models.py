@@ -30,6 +30,30 @@ class LoginBonusStatus(TypedDict):
     cycle: list[int]
 
 
+class LossGachaPublicRange(TypedDict):
+    min: int
+    max: int
+
+
+class LossGachaStatus(TypedDict):
+    mode: str
+    reason: str | None
+    gachaExpiresAt: str | None
+    publicRange: LossGachaPublicRange
+
+
+class LossGachaTicketResponse(TypedDict):
+    ticketId: str
+    expiresAt: str
+
+
+class LossGachaClaimResponse(TypedDict):
+    grantedPoints: int
+    grantedCoins: int
+    roll: str
+    balanceAfter: int
+
+
 @dataclass(slots=True)
 class AuthSession:
     access_token: str
