@@ -177,6 +177,8 @@ Architecture details: [docs/architecture.md](docs/architecture.md).
 - [Capability inventory](docs/capabilities.md)
 - [Known gaps](docs/known-gaps.md)
 - [Observed endpoints](docs/endpoints.md)
+- [Android APK/Hermes endpoint inventory](docs/apk-endpoints.md)
+- [Endpoint inventory workflow](docs/endpoint-inventory.md)
 - [Trading](docs/trading.md)
 - [Configuration](docs/configuration.md)
 - [Authentication](docs/authentication.md)
