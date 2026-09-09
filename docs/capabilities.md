@@ -19,31 +19,37 @@ Measured by CI with `python scripts/code_stats.py`:
 
 | Area | Files | Physical lines | Non-blank lines |
 | --- | ---: | ---: | ---: |
-| Core `src/poyto/*.py` | 14 | 1,274 | 1,081 |
-| Resource wrappers `src/poyto/resources/*.py` | 7 | 444 | 362 |
-| **Source total** | **21** | **1,718** | **1,443** |
-| Tests | 4 | 412 | 330 |
+| Core `src/poyto/*.py` | 20 | 2,878 | 2,492 |
+| Resource wrappers `src/poyto/resources/*.py` | 7 | 485 | 400 |
+| **Source total** | **27** | **3,363** | **2,892** |
+| Tests | 9 | 1,072 | 870 |
 
 Per-source-file snapshot:
 
 | File | Lines | Non-blank | Main responsibility |
 | --- | ---: | ---: | --- |
-| `src/poyto/_http.py` | 195 | 171 | HTTP transport, headers, auth exchange/refresh/logout |
-| `src/poyto/cli_dispatch.py` | 174 | 161 | CLI command execution |
-| `src/poyto/auto.py` | 170 | 152 | credential loading, persistence, auto-refresh, 401 retry |
+| `src/poyto/control_exec.py` | 379 | 344 | Codex-style Linux command sessions and stdin continuation |
+| `src/poyto/control_fs.py` | 306 | 272 | bounded root-scoped file reads and patch application |
+| `src/poyto/mcp_server.py` | 295 | 256 | Poyto MCP tool surface and composable server builder |
+| `src/poyto/control_plugin.py` | 256 | 223 | authenticated Poyto Server Control plugin surface |
+| `src/poyto/_http.py` | 215 | 191 | HTTP transport, headers, auth exchange/refresh/logout |
+| `src/poyto/auto.py` | 198 | 179 | credential loading, persistence, auto-refresh, 401 retry |
+| `src/poyto/cli_dispatch.py` | 187 | 174 | CLI command execution |
 | `src/poyto/token_loader.py` | 163 | 136 | token/text/file parsing |
+| `src/poyto/resources/account.py` | 147 | 117 | account, balances, notifications, referral, reward/status reads |
+| `src/poyto/cli_parser.py` | 130 | 103 | CLI arguments and command definitions |
+| `src/poyto/control_paths.py` | 127 | 108 | approved-root and host-path resolution for server control |
 | `src/poyto/resources/social.py` | 129 | 107 | users, follows, comments/social reads/writes |
-| `src/poyto/cli_parser.py` | 116 | 92 | CLI arguments and command definitions |
-| `src/poyto/resources/account.py` | 106 | 79 | account, balances, notifications, referral, ad reward |
+| `src/poyto/har_loader.py` | 111 | 92 | secret-safe HAR/HAR.zip session extraction |
+| `src/poyto/models.py` | 101 | 80 | typed structures |
 | `src/poyto/config.py` | 86 | 71 | environment/settings/device configuration |
 | `src/poyto/resources/markets.py` | 74 | 61 | markets, positions, activity, charts, prices |
-| `src/poyto/models.py` | 68 | 57 | typed structures |
+| `src/poyto/_resource.py` | 73 | 61 | shared resource typing/helpers |
 | `src/poyto/session_store.py` | 66 | 53 | persistent local session storage |
-| `src/poyto/_resource.py` | 65 | 53 | shared resource helpers/pagination helpers |
 | `src/poyto/resources/trades.py` | 60 | 55 | buy/sell request wrappers |
+| `src/poyto/__init__.py` | 49 | 46 | public exports and compatibility aliases |
 | `src/poyto/token_info.py` | 43 | 32 | secret-safe token/session inspection |
 | `src/poyto/resources/events.py` | 35 | 30 | event/timeline/ranking/chat wrappers |
-| `src/poyto/__init__.py` | 35 | 32 | public exports and compatibility aliases |
 | `src/poyto/exceptions.py` | 34 | 24 | normalized exceptions |
 | `src/poyto/client.py` | 31 | 25 | low-level client composition |
 | `src/poyto/cli.py` | 28 | 22 | CLI entrypoint/output |
@@ -145,6 +151,8 @@ State-changing commands require explicit `--yes` where defined.
 ## Local reliability features
 
 Poyto additionally implements credential-source priority, environment configuration, token-file parsing, configurable hosts/timeouts, reusable device metadata headers, context-manager support, `py.typed`, normalized API exceptions, secret-masked session inspection, network-free MockTransport tests, Ruff, mypy, package build and Python 3.10–3.14 CI.
+
+The Docker image also includes the standalone **Poyto Server Control** custom MCP app. It exposes Poyto tools plus `read`, `apply_patch`, `exec_command`, and `write_stdin`; supports independent Bearer authentication for generic MCP clients, a loopback-only Secure MCP Tunnel mode for direct ChatGPT use, bounded background command sessions, configured file roots, and an explicitly opt-in Docker host-control overlay using `nsenter`. These are local administration capabilities, not POYP API evidence.
 
 ## Raw HTTP escape hatch
 

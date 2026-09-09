@@ -96,6 +96,8 @@ See [AI agents, MCP, and scheduled runs](docs/agents.md) and the reusable [`skil
 
 GitHub Actions publishes a multi-architecture image to `ghcr.io/tqmane/poyto`. The image contains both `linux/amd64` and `linux/arm64` variants, built on native GitHub-hosted x64 and Arm64 runners rather than through QEMU emulation.
 
+The image starts **Poyto Server Control**, a standalone Streamable HTTP MCP endpoint that can be registered directly as a ChatGPT custom app. It combines the normal Poyto MCP tools with Linux server primitives inspired by Codex/Chat On Steroids Core: `read`, `apply_patch`, `exec_command`, and `write_stdin`. Chat On Steroids is only an implementation reference; it is not a runtime dependency and is not required for deployment.
+
 Pull and run the published image:
 
 ```bash
@@ -106,10 +108,35 @@ docker run -d \
   --restart unless-stopped \
   -p 127.0.0.1:8765:8765 \
   -v poyto-data:/data \
+  -v /srv/projects:/workspace \
   ghcr.io/tqmane/poyto:latest
 ```
 
-The container serves the Streamable HTTP MCP endpoint at `/mcp` on port `8765` and stores its session at `/data/session.json`, so credentials survive container recreation without being baked into the image. Remote Docker deployments default to `POYTO_MCP_READ_ONLY=true`; set it to `false` only for MCP clients that should be allowed to see mutation tools.
+The plugin endpoint is `/mcp` on port `8765`. It requires `Authorization: Bearer ...`; on first start a random token is created at `/data/control-plugin.token`. Retrieve it explicitly with:
+
+```bash
+docker exec poyto poyto-plugin-token
+```
+
+For ChatGPT Web, connect this endpoint directly as a custom MCP app. ChatGPT cannot connect straight to a loopback-only MCP server, so use OpenAI Secure MCP Tunnel for a private/on-prem deployment, or expose an authenticated HTTPS MCP endpoint. The POYP session remains separately persisted at `/data/session.json`.
+
+For **Secure MCP Tunnel on the same Linux server**, start the loopback-only tunnel profile:
+
+```bash
+docker compose -f compose.yaml -f compose.secure-tunnel.yaml up -d --build
+```
+
+This uses host networking, removes Docker's published port, binds MCP only to `127.0.0.1:8765`, and disables the built-in static Bearer token. Use this mode only when Secure MCP Tunnel is the intended ingress. To combine it with root-equivalent host control, also add `-f compose.host-control.yaml`.
+
+The built-in static Bearer token is useful for generic MCP clients and authenticated gateways. ChatGPT's current custom-app documentation explicitly covers direct MCP endpoints and OAuth; do not assume a particular ChatGPT account/UI can inject an arbitrary static Bearer token. For direct ChatGPT deployment, prefer Secure MCP Tunnel or an OAuth-capable authentication layer.
+
+The normal container mode executes commands inside the container and confines file tools to `POYTO_PLUGIN_ROOTS` (default `/workspace:/data`). To grant full Linux-host command execution, explicitly layer the host-control compose file:
+
+```bash
+docker compose -f compose.yaml -f compose.host-control.yaml up -d --build
+```
+
+Host-control mode runs the plugin as root with `pid: host`, `privileged: true`, a writable `/host` bind, and `nsenter`. It is intentionally root-equivalent authority over the server. Never expose that endpoint without a private/authenticated transport and an authentication mechanism supported by the client or gateway.
 
 GitHub Container Registry creates a newly published package as private by default. If anonymous pulls are desired, set the `poyto` package visibility to **Public** in GitHub after its first publication.
 

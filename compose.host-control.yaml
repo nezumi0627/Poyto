@@ -1,0 +1,14 @@
+services:
+  poyto:
+    # Explicit full-host mode. This gives the plugin root-equivalent authority over
+    # the Linux host through nsenter. Never expose this endpoint without the plugin
+    # Bearer token and an authenticated/private HTTPS transport.
+    user: "0:0"
+    privileged: true
+    pid: host
+    environment:
+      POYTO_PLUGIN_EXEC_MODE: host
+      POYTO_PLUGIN_HOST_ROOT: /host
+      POYTO_PLUGIN_ROOTS: /host:/data
+    volumes:
+      - /:/host:rw,rslave

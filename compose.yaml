@@ -6,15 +6,17 @@ services:
     init: true
     restart: unless-stopped
     environment:
-      POYTO_MCP_TRANSPORT: streamable-http
-      POYTO_MCP_HOST: 0.0.0.0
-      POYTO_MCP_PORT: 8765
-      POYTO_MCP_READ_ONLY: ${POYTO_MCP_READ_ONLY:-true}
+      POYTO_PLUGIN_HOST: 0.0.0.0
+      POYTO_PLUGIN_PORT: 8765
+      POYTO_PLUGIN_TOKEN_FILE: /data/control-plugin.token
+      POYTO_PLUGIN_ROOTS: /workspace:/data
+      POYTO_PLUGIN_EXEC_MODE: container
       POYTO_SESSION_FILE: /data/session.json
     ports:
-      - "127.0.0.1:${POYTO_MCP_PUBLISH_PORT:-8765}:8765"
+      - "127.0.0.1:${POYTO_PLUGIN_PUBLISH_PORT:-8765}:8765"
     volumes:
       - poyto-data:/data
+      - ./:/workspace/Poyto
 
 volumes:
   poyto-data:

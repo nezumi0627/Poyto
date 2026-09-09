@@ -58,6 +58,23 @@ POYTO_MCP_READ_ONLY=true
 
 The Streamable HTTP endpoint is `/mcp`. Remote/cloud chat clients must use an HTTPS endpoint or a supported private MCP tunnel. For ChatGPT Web-specific deployment and web-research guidance, see [ChatGPT Web + Poyto MCP](chatgpt-web.md).
 
+## Standalone ChatGPT/server-control app mode
+
+The Docker image uses `poyto-plugin` rather than `poyto-mcp` as its default command. It is a standalone Streamable HTTP MCP server that can be registered directly as a ChatGPT custom app or used by another compatible MCP client. Chat On Steroids is not required.
+
+The plugin combines the Poyto tool surface with four Linux server primitives whose names and interaction model are inspired by Codex/Chat On Steroids Core:
+
+- `read`
+- `apply_patch`
+- `exec_command`
+- `write_stdin`
+
+`exec_command` accepts one command or a sequential batch, returns a `session_id` for long-running work, and `write_stdin` continues/polls that process. File operations are restricted to `POYTO_PLUGIN_ROOTS`. Commands start in an approved root but are not command-sandboxed after launch.
+
+The HTTP plugin requires a Bearer token by default. `poyto-plugin-token` prints the current token for generic MCP clients or an authentication gateway. ChatGPT custom apps should be connected through a supported remote path such as Secure MCP Tunnel or an OAuth-capable HTTPS deployment rather than relying on Chat On Steroids.
+
+For full host control from Docker, see `compose.host-control.yaml` and [server-control plugin](server-control-plugin.md). That mode is deliberately opt-in because it uses host PID namespace + `nsenter` and is root-equivalent.
+
 ## Tool surface
 
 Read tools:

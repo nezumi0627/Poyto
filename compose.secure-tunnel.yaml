@@ -1,0 +1,14 @@
+services:
+  poyto:
+    # Direct ChatGPT/Secure MCP Tunnel mode for a Linux host. The MCP server is
+    # bound only to host loopback and therefore does not use its static Bearer
+    # token; the Secure MCP Tunnel is the only intended ingress path.
+    network_mode: host
+    ports: !reset []
+    command:
+      - poyto-plugin
+      - --host
+      - 127.0.0.1
+      - --port
+      - "${POYTO_PLUGIN_TUNNEL_PORT:-8765}"
+      - --insecure-no-auth

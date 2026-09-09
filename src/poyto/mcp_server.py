@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+from collections.abc import Mapping
 from typing import Any
 
 from .auto import PoytoClient
@@ -22,7 +23,15 @@ def _require_confirmation(confirm: bool, action: str) -> None:
         )
 
 
-def build_server(*, host: str = "127.0.0.1", port: int = 8765, read_only: bool = False) -> Any:
+def build_server(
+    *,
+    host: str = "127.0.0.1",
+    port: int = 8765,
+    read_only: bool = False,
+    server_name: str = "Poyto",
+    extra_instructions: str | None = None,
+    fastmcp_kwargs: Mapping[str, Any] | None = None,
+) -> Any:
     """Build the optional MCP server without making MCP a core dependency."""
     try:
         from mcp.server.fastmcp import FastMCP
@@ -41,20 +50,27 @@ def build_server(*, host: str = "127.0.0.1", port: int = 8765, read_only: bool =
             "explicitly confirms the exact operation."
         )
     )
+    instructions = (
+        "Use Poyto as the authoritative source for the user's current POYP account, "
+        "markets, portfolio, activity and balance state. Read operations may be run "
+        "directly. When a question depends on current real-world news or likely market "
+        "outcomes, use the host client's web/search tools if available and clearly keep "
+        "external research separate from POYP-provided data. Do not infer external facts "
+        "from market prices alone. Never ask the user to paste access or refresh tokens "
+        "into chat; authentication is loaded from Poyto's persisted session/environment. "
+        + mode_instructions
+    )
+    if extra_instructions:
+        instructions += " " + extra_instructions.strip()
+
     mcp = FastMCP(
-        "Poyto",
+        server_name,
         instructions=(
-            "Use Poyto as the authoritative source for the user's current POYP account, "
-            "markets, portfolio, activity and balance state. Read operations may be run "
-            "directly. When a question depends on current real-world news or likely market "
-            "outcomes, use the host client's web/search tools if available and clearly keep "
-            "external research separate from POYP-provided data. Do not infer external facts "
-            "from market prices alone. Never ask the user to paste access or refresh tokens "
-            "into chat; authentication is loaded from Poyto's persisted session/environment. "
-            + mode_instructions
+            instructions
         ),
         host=host,
         port=port,
+        **dict(fastmcp_kwargs or {}),
     )
 
     read_annotations = ToolAnnotations(

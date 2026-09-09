@@ -40,6 +40,8 @@ dev = [
 [project.scripts]
 poyto = "poyto.cli:main"
 poyto-mcp = "poyto.mcp_server:main"
+poyto-plugin = "poyto.control_plugin:main"
+poyto-plugin-token = "poyto.control_plugin:token_main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
