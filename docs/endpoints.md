@@ -68,6 +68,8 @@ Supported buy fields: `marketId`, `positionIndex`, `pointAmount`, `orderSurface`
 
 Supported sell fields: `marketId`, `positionIndex`, `shares`, `orderSurface`, `entryPoint`, `sessionId`, `deviceId`.
 
+See [trading API evidence](trading.md) for the consolidated client/CLI/MCP/test mapping and the separate APK-static-only status of `GET /api/me/trades` and `POST /api/trades/quote`.
+
 ## Comments
 
 - `GET /api/comments/moderation-status`
