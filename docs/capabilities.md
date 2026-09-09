@@ -182,3 +182,7 @@ Secure MCP Tunnel. No POYP mutation was performed. See
 “Supported” means Poyto has a maintained surface and suitable tests for the request shape/local behavior. It does not mean POYP guarantees the endpoint or that all responses and server rules are known.
 
 For everything that lacks enough evidence, see [`known-gaps.md`](known-gaps.md). For the route inventory, see [`endpoints.md`](endpoints.md).
+
+`compose.portainer.yaml` packages Poyto and the official tunnel-client for Portainer Docker Standalone, sharing a private network namespace with no published ports. Published image manifests include amd64 and arm64. Separate `compose.portainer.amd64.yaml` and `compose.portainer.arm64.yaml` files select the target CPU explicitly. See [Portainer setup](setup-portainer.md).
+
+Portainer setup follow-up: the user reported successful operation after correcting the data-directory/session ownership to UID/GID 10001. This is user-reported deployment evidence, not a maintainer-run hardware, load or reboot test. The [Japanese Portainer guide](setup-portainer.md) records the error and repair commands.

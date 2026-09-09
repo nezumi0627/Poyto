@@ -284,3 +284,9 @@ Before moving an item from unknown to supported:
 5. Add an exact `httpx.MockTransport` regression test.
 6. Update `docs/endpoints.md`, `docs/capabilities.md`, and this file.
 7. Never fill evidence gaps with guessed routes merely because a naming pattern looks plausible.
+
+## Portainer deployment
+
+The Portainer stack configuration and published amd64/arm64 image manifests have been checked. Load and reboot recovery remain unverified on deployment hardware. These files target Linux Docker Standalone; Swarm and ARMv7/32-bit deployments are not covered. See [Portainer setup](setup-portainer.md).
+
+Portainer setup follow-up: the user reported successful operation after correcting the data-directory/session ownership to UID/GID 10001. This is user-reported deployment evidence, not a maintainer-run hardware, load or reboot test. The [Japanese Portainer guide](setup-portainer.md) records the error and repair commands.

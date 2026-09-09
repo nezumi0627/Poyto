@@ -1,5 +1,7 @@
 # 別の Linux 環境で ChatGPT Web から Poyto を使う
 
+**Portainer の場合は [共通手順（amd64 / arm64）](setup-portainer.md) を使ってください。**
+
 移行先の Linux マシンで再現するための手順です。現在の開発マシンのパス、Tunnel ID、キー、インストール済みプラグインには依存しません。コマンドは特記がない限り、**移行先の Bash** で実行します。
 
 ```text

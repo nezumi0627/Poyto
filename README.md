@@ -38,6 +38,8 @@ See [Capability inventory](docs/capabilities.md) for the per-file breakdown and 
 
 ## Use from ChatGPT Web
 
+**Portainer:** [日本語セットアップ](docs/setup-portainer.md) / [amd64（x64）用 YAML](compose.portainer.amd64.yaml) / [arm64 用 YAML](compose.portainer.arm64.yaml)
+
 別の Linux マシンへの導入は **[日本語セットアップ手順](docs/setup-ja.md)** を参照してください。セッション移行、Tunnel 作成、ChatGPT 登録、常駐・自動起動、Docker 構成を説明しています。
 
 Poyto Server Control exposes POYP tools, file edits and shell execution directly

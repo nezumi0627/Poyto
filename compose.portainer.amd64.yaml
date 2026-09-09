@@ -1,0 +1,41 @@
+# Portainer Docker Standalone on Linux/amd64.
+# Prepare /opt/poyto/{data,workspace,secrets} on the Docker host first.
+services:
+  poyto:
+    platform: linux/amd64
+    image: ghcr.io/tqmane/poyto:latest
+    init: true
+    restart: unless-stopped
+    command: ["poyto-plugin", "--host", "127.0.0.1", "--port", "8765", "--insecure-no-auth"]
+    environment:
+      POYTO_PLUGIN_PORT: "8765"
+      POYTO_PLUGIN_ROOTS: /workspace:/data
+      POYTO_PLUGIN_EXEC_MODE: container
+      POYTO_SESSION_FILE: /data/session.json
+    volumes:
+      - /opt/poyto/data:/data
+      - /opt/poyto/workspace:/workspace
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1',8765),2).close()"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  tunnel:
+    platform: linux/amd64
+    image: ghcr.io/openai/tunnel-client:v0.0.14
+    user: "10001:10001"
+    restart: unless-stopped
+    # Share only Poyto's network namespace: localhost reaches its private MCP.
+    network_mode: service:poyto
+    depends_on:
+      poyto:
+        condition: service_healthy
+    command:
+      - --control-plane.api-key=file:/run/poyto-secrets/runtime.key
+      - --control-plane.tunnel-id=${POYTO_TUNNEL_ID:?Set POYTO_TUNNEL_ID in Portainer}
+      - --mcp.server-url=http://127.0.0.1:8765/mcp
+      - --health.listen-addr=127.0.0.1:8080
+    volumes:
+      - /opt/poyto/secrets:/run/poyto-secrets:ro
