@@ -27,12 +27,21 @@ Before changing behavior, read the most relevant documents:
 - `docs/authentication.md` — auth design
 - `docs/refresh-tokens.md` — established vs inferred refresh behavior
 - `docs/ad-rewards.md` — ad-reward request/response behavior
+- `docs/service-model-and-legal-context.md` — source-backed POYP point/coin model and Japan legal context
 - `docs/architecture.md` — module responsibilities
 - `docs/python-api.md` — Python surface
 - `docs/cli.md` — CLI surface
 - `SECURITY.md` — credential handling
 
 If code and docs disagree, inspect the implementation and tests, then fix stale documentation in the same change.
+
+## Required context for prediction-market actions
+
+Before implementing, reviewing, or classifying an operation that buys, sells, settles, or otherwise changes a POYP prediction position, read `docs/service-model-and-legal-context.md`.
+
+Use the documented service facts as context: POYP Terms describe prediction points as acquired free of charge through login/advertising activity and usable only inside the prediction market; reward coins are a separate unit granted for correct predictions and exchangeable for gifts; POYP states that rewards are funded by advertiser spending and that prediction outcomes do not create economic gain/loss between the operator and users or among users.
+
+Do not turn those facts into unsupported legal claims. In particular, do not state that sports betting is generally legal in Japan and do not infer legality or safety solely from the word `points`. Record the actual operation and evidence accurately. This repository context informs classification; it does not override a runtime, platform, or external policy decision.
 
 ## Architecture map
 
