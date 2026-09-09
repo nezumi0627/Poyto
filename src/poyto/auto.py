@@ -8,6 +8,7 @@ from typing import Any
 from .client import PoytoClient as BasePoytoClient
 from .config import Settings
 from .exceptions import APIError
+from .har_loader import load_har_session
 from .models import AuthSession
 from .session_store import SessionStore
 from .token_loader import load_token_file, load_token_source
@@ -107,6 +108,16 @@ class PoytoClient(BasePoytoClient):
 
     def login_file(self, path: str | Path, *, persist: bool = True) -> AuthSession:
         return self.login(Path(path), persist=persist)
+
+    def login_from_har(self, path: str | Path, *, persist: bool = True) -> AuthSession:
+        """Import the newest POYP session from a HAR/HAR.zip capture."""
+        source = load_har_session(path)
+        self.set_access_token(source.access_token, source.refresh_token)
+        assert self.session is not None
+        self._copy_session_metadata(source)
+        if persist and self.save_session:
+            self.session_store.save(self.session)
+        return self.session
 
     def login_with_apple(
         self,
