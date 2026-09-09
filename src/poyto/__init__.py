@@ -1,7 +1,16 @@
 from .auto import PoytoClient
 from .config import Settings
 from .exceptions import APIError, AuthenticationError, CredentialError, PoytoError
-from .models import AdRewardClaimResponse, AuthSession, DeviceInfo, LoginBonusStatus
+from .models import (
+    AdRewardClaimResponse,
+    AuthSession,
+    DeviceInfo,
+    LoginBonusStatus,
+    LossGachaClaimResponse,
+    LossGachaPublicRange,
+    LossGachaStatus,
+    LossGachaTicketResponse,
+)
 from .session_store import SessionStore, default_session_path
 from .token_info import SessionInfo, session_info, token_kind
 from .token_loader import load_token_file, load_token_source, parse_token_text
@@ -14,6 +23,10 @@ __all__ = [
     "CredentialError",
     "DeviceInfo",
     "LoginBonusStatus",
+    "LossGachaClaimResponse",
+    "LossGachaPublicRange",
+    "LossGachaStatus",
+    "LossGachaTicketResponse",
     "PoytoClient",
     "PoytoError",
     "SessionInfo",

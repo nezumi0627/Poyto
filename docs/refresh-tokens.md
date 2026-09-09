@@ -1,6 +1,6 @@
 # Refresh tokens
 
-Poyto uses POYP's Supabase Auth session model. This page deliberately separates **established POYP behavior** from **documented Supabase behavior**.
+Poyto uses POYP's Supabase Auth session model. This page separates behavior verified against POYP from broader Supabase behavior that remains useful background rather than a POYP-specific guarantee.
 
 ## Established POYP behavior
 
@@ -23,11 +23,20 @@ The Apple sign-in request itself also contains a field named `access_token`. Tha
 
 See `token-capture-findings.md` for sanitized token-behavior notes.
 
-## Inferred POYP refresh behavior
+### Live-verified refresh exchange
 
-The exact POYP refresh exchange is not directly established, so Poyto does not present it as guaranteed POYP behavior. The implementation follows the standard Supabase/GoTrue Auth API used by the authentication service.
+On 2026-09-09, an existing authorized POYP refresh token was successfully exchanged through:
 
-Poyto also does not claim to know POYP's project-specific refresh-token reuse interval, time-boxed session lifetime, inactivity timeout, or single-session policy.
+```text
+POST https://auth.poyp.app/auth/v1/token?grant_type=refresh_token
+Content-Type: application/json
+
+{"refresh_token": "<opaque refresh token>"}
+```
+
+The returned session was accepted by the authenticated POYP API immediately afterward. This establishes the endpoint and request shape used by Poyto as working POYP behavior for the tested session.
+
+The test does **not** establish every project-specific refresh policy. Poyto still does not claim to know POYP's exact refresh-token reuse interval, time-boxed session lifetime, inactivity timeout, single-session policy, simultaneous-refresh behavior, or every expired/revoked-token error response.
 
 ## Documented Supabase behavior
 
@@ -44,18 +53,9 @@ Official references:
 
 ## Poyto refresh implementation
 
-Poyto follows the standard GoTrue endpoint shape:
+Poyto uses the live-verified POYP refresh endpoint shown above.
 
-```text
-POST https://auth.poyp.app/auth/v1/token?grant_type=refresh_token
-Content-Type: application/json
-
-{"refresh_token": "<opaque refresh token>"}
-```
-
-The returned session replaces the in-memory session and, when persistence is enabled, the newly returned access and refresh tokens replace the stored pair.
-
-This endpoint shape is supported by Supabase's Auth API documentation. It remains marked as **implemented/inferred** until exact POYP refresh behavior is independently established.
+The returned session replaces the in-memory session and, when persistence is enabled, the newly returned access and refresh tokens replace the stored pair immediately. Persisting the newest pair is important because refresh credentials may rotate.
 
 ## Automatic behavior in Poyto
 
@@ -67,6 +67,10 @@ When `PoytoClient()` loads credentials:
 - if expiry is known and the access token is expired or within 60 seconds of expiry, Poyto refreshes when a refresh token is available;
 - if an authenticated POYP API request returns HTTP 401 and a refresh token exists, Poyto refreshes once and retries once;
 - after a successful refresh, the newest token pair is persisted;
+- refresh-token rotation is serialized through a local lock so multiple Poyto/MCP
+  processes do not intentionally consume the same saved refresh token concurrently;
+- if another process has already persisted a newer rotated token pair, a stale client
+  adopts that newer saved session instead of refreshing the older pair again;
 - Poyto never attempts to decode a refresh token as a JWT.
 
 Example:
@@ -86,7 +90,11 @@ session = client.refresh()
 
 ## Token storage and concurrency
 
-With rotation, two processes refreshing the same session can race. Supabase has reuse/recovery behavior for legitimate races, but applications should not rely on it as a locking mechanism. Prefer one active session store per independently authenticated client/process when possible.
+With rotation, two processes refreshing the same session can race. Poyto serializes refresh
+rotation for one session file and re-checks the saved session while holding that lock. If a
+refresh token is already consumed or no longer exists and no newer saved pair exists, Poyto
+reports an authentication error instead of repeatedly submitting the known-invalid refresh
+token.
 
 Poyto's default session file is outside the repository:
 

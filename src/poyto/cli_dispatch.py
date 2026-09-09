@@ -58,6 +58,10 @@ def execute(parser: argparse.ArgumentParser, args: argparse.Namespace, client: P
     if command == "home":
         return {"sections": client.home_sections(), "tabs": client.home_tabs()}
     if command == "login":
+        if args.login_har:
+            if args.login_token or args.login_refresh_token:
+                parser.error("--har は login_token / --refresh-token と同時に指定できません")
+            return masked(client.login_from_har(args.login_har))
         token = args.login_token or getpass.getpass("POYP access token: ")
         return masked(client.login(token, args.login_refresh_token))
     if command == "login-apple":
@@ -152,6 +156,14 @@ def execute(parser: argparse.ArgumentParser, args: argparse.Namespace, client: P
     if command == "claim-ad-reward":
         require_yes(parser, args, "報酬claim")
         return client.claim_ad_reward(source=args.source)
+    if command == "loss-gacha-status":
+        return client.loss_gacha_status(args.market_id)
+    if command == "loss-gacha-ticket":
+        require_yes(parser, args, "外れ取引救済チケット発行")
+        return client.create_loss_gacha_ticket(args.market_id)
+    if command == "loss-gacha-claim":
+        require_yes(parser, args, "外れ取引救済報酬claim")
+        return client.claim_loss_gacha(args.market_id, args.ticket_id, kind=args.kind)
     if command == "user":
         return {
             "profile": client.user_profile(args.user_id),

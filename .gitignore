@@ -4,6 +4,7 @@ __pycache__/
 venv/
 .env
 .env.*
+.poyto/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
@@ -13,6 +14,7 @@ dist/
 build/
 *.egg-info/
 .analysis/
+.poyto/
 *.har
 *.har.zip
 .DS_Store

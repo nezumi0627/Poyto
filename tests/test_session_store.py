@@ -5,8 +5,9 @@ import json
 import time
 
 import httpx
+import pytest
 
-from poyto import AuthSession, PoytoClient, SessionStore
+from poyto import AuthenticationError, AuthSession, PoytoClient, SessionStore
 from poyto.token_loader import load_token_file, parse_token_text
 
 
@@ -36,6 +37,12 @@ def test_session_store_round_trip(tmp_path):
     assert loaded.user == {"id": "user"}
     store.clear()
     assert store.load() is None
+
+
+def test_refresh_lock_can_be_acquired(tmp_path):
+    store = SessionStore(tmp_path / "session.json")
+    with store.refresh_lock():
+        assert True
 
 
 def test_plaintext_token_parser():
@@ -162,3 +169,49 @@ def test_expired_session_auto_refreshes(tmp_path):
     persisted = SessionStore(path).load()
     assert persisted is not None
     assert persisted.access_token == "new-access"
+
+
+def test_refresh_adopts_newer_rotated_session_from_store(tmp_path):
+    path = tmp_path / "session.json"
+    SessionStore(path).save(
+        AuthSession(access_token="old-access", refresh_token="old-refresh")
+    )
+    client = PoytoClient(session_file=path, auto_refresh=False)
+    SessionStore(path).save(
+        AuthSession(access_token="new-access", refresh_token="new-refresh")
+    )
+
+    session = client.refresh()
+
+    assert session.access_token == "new-access"
+    assert session.refresh_token == "new-refresh"
+    client.close()
+
+
+@pytest.mark.parametrize(
+    "error_code",
+    ["refresh_token_already_used", "refresh_token_not_found"],
+)
+def test_invalid_saved_refresh_token_becomes_authentication_error(tmp_path, error_code):
+    path = tmp_path / "session.json"
+    SessionStore(path).save(
+        AuthSession(access_token="expired", refresh_token="used-refresh")
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            400,
+            json={
+                "code": 400,
+                "error_code": error_code,
+                "msg": "Invalid Refresh Token",
+            },
+        )
+
+    with PoytoClient(
+        session_file=path,
+        auto_refresh=False,
+        transport=httpx.MockTransport(handler),
+    ) as client:
+        with pytest.raises(AuthenticationError, match="fresh authorized session"):
+            client.refresh()
