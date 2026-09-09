@@ -1,0 +1,20 @@
+services:
+  poyto:
+    build:
+      context: .
+    image: poyto:local
+    init: true
+    restart: unless-stopped
+    environment:
+      POYTO_SESSION_FILE: /data/session.json
+      POYTO_MCP_TRANSPORT: streamable-http
+      POYTO_MCP_HOST: 0.0.0.0
+      POYTO_MCP_PORT: 8765
+      POYTO_MCP_READ_ONLY: "true"
+    ports:
+      - "127.0.0.1:${POYTO_MCP_PUBLISH_PORT:-8765}:8765"
+    volumes:
+      - poyto-data:/data
+
+volumes:
+  poyto-data:
