@@ -111,9 +111,14 @@ class HTTPClient:
         json: Any = None,
         auth: bool = True,
         headers: Mapping[str, str] | None = None,
+        include_poyp_headers: bool = True,
     ) -> Any:
         normalized = path if path.startswith("/") else f"/{path}"
-        request_headers = self._poyp_headers(auth=auth)
+        request_headers = (
+            self._poyp_headers(auth=auth)
+            if include_poyp_headers
+            else (self._auth_header() if auth else {})
+        )
         if headers:
             request_headers.update(headers)
         response = self.http.request(
@@ -125,8 +130,23 @@ class HTTPClient:
         )
         return self._decode(response)
 
-    def get(self, path: str, *, params: Mapping[str, Any] | None = None, auth: bool = True) -> Any:
-        return self.request("GET", path, params=params, auth=auth)
+    def get(
+        self,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        auth: bool = True,
+        headers: Mapping[str, str] | None = None,
+        include_poyp_headers: bool = True,
+    ) -> Any:
+        return self.request(
+            "GET",
+            path,
+            params=params,
+            auth=auth,
+            headers=headers,
+            include_poyp_headers=include_poyp_headers,
+        )
 
     def post(self, path: str, *, params: Mapping[str, Any] | None = None, json: Any = None, auth: bool = True) -> Any:
         return self.request("POST", path, params=params, json=json, auth=auth)

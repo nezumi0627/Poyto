@@ -53,7 +53,10 @@ Environment equivalents:
 POYTO_MCP_TRANSPORT=streamable-http
 POYTO_MCP_HOST=127.0.0.1
 POYTO_MCP_PORT=8765
+POYTO_MCP_READ_ONLY=true
 ```
+
+The Streamable HTTP endpoint is `/mcp`. Remote/cloud chat clients must use an HTTPS endpoint or a supported private MCP tunnel. For ChatGPT Web-specific deployment and web-research guidance, see [ChatGPT Web + Poyto MCP](chatgpt-web.md).
 
 ## Tool surface
 
@@ -68,6 +71,13 @@ Read tools:
 - `market_activity`
 - `asset_price`
 - `transactions`
+- `login_bonus`
+- `unread_notification_count`
+- `home_sections`
+- `home_tabs`
+- `interest_subcategories`
+- `campaign_banners`
+- `loss_gacha_status`
 
 Mutation tools:
 

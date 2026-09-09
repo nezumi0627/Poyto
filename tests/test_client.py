@@ -201,3 +201,31 @@ def test_api_error_exposes_response_details():
             client.profile()
     assert exc_info.value.status_code == 400
     assert exc_info.value.response_body == {"error": "bad request"}
+
+
+def test_health_matches_current_android_public_request_shape() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"ok": True})
+
+    device = DeviceInfo(
+        app_version="1.3.9",
+        os="android",
+        os_version="16",
+        ota_generation="1030905",
+        is_device=False,
+    )
+    with isolated_client(device=device, transport=httpx.MockTransport(handler)) as client:
+        client.health()
+
+    request = seen[0]
+    assert request.method == "GET"
+    assert request.url.path == "/api/health"
+    assert "authorization" not in request.headers
+    assert request.headers["x-poyp-ota-generation"] == "1030905"
+    assert "x-poyp-app-version" not in request.headers
+    assert "x-poyp-os" not in request.headers
+    assert "x-poyp-os-version" not in request.headers
+    assert "x-poyp-is-device" not in request.headers

@@ -150,9 +150,18 @@ class PoytoClient(BasePoytoClient):
         json: Any = None,
         auth: bool = True,
         headers: Mapping[str, str] | None = None,
+        include_poyp_headers: bool = True,
     ) -> Any:
         try:
-            return super().request(method, path, params=params, json=json, auth=auth, headers=headers)
+            return super().request(
+                method,
+                path,
+                params=params,
+                json=json,
+                auth=auth,
+                headers=headers,
+                include_poyp_headers=include_poyp_headers,
+            )
         except APIError as exc:
             can_retry = (
                 auth
@@ -164,7 +173,15 @@ class PoytoClient(BasePoytoClient):
             if not can_retry:
                 raise
             self.refresh()
-            return super().request(method, path, params=params, json=json, auth=auth, headers=headers)
+            return super().request(
+                method,
+                path,
+                params=params,
+                json=json,
+                auth=auth,
+                headers=headers,
+                include_poyp_headers=include_poyp_headers,
+            )
 
     def logout(self, scope: str = "global", *, local_only: bool = False) -> None:
         if not local_only and self.session:

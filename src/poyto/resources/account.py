@@ -14,7 +14,17 @@ from ..models import (
 
 class AccountMixin(ResourceMixin):
     def health(self) -> Any:
-        return self.get("/api/health", auth=False)
+        headers = (
+            {"x-poyp-ota-generation": self.device.ota_generation}
+            if self.device.ota_generation is not None
+            else None
+        )
+        return self.get(
+            "/api/health",
+            auth=False,
+            headers=headers,
+            include_poyp_headers=False,
+        )
 
     def profile(self) -> Any:
         return self.get("/api/me/profile")

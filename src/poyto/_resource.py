@@ -15,7 +15,15 @@ class ResourceMixin:
 
     device: DeviceInfo
 
-    def get(self, path: str, *, params: Mapping[str, Any] | None = None, auth: bool = True) -> Any:
+    def get(
+        self,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        auth: bool = True,
+        headers: Mapping[str, str] | None = None,
+        include_poyp_headers: bool = True,
+    ) -> Any:
         raise NotImplementedError
 
     def post(

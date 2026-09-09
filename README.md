@@ -109,7 +109,7 @@ docker run -d \
   ghcr.io/tqmane/poyto:latest
 ```
 
-The container serves the streamable-HTTP MCP endpoint on port `8765` and stores its session at `/data/session.json`, so credentials survive container recreation without being baked into the image.
+The container serves the Streamable HTTP MCP endpoint at `/mcp` on port `8765` and stores its session at `/data/session.json`, so credentials survive container recreation without being baked into the image. Remote Docker deployments default to `POYTO_MCP_READ_ONLY=true`; set it to `false` only for MCP clients that should be allowed to see mutation tools.
 
 GitHub Container Registry creates a newly published package as private by default. If anonymous pulls are desired, set the `poyto` package visibility to **Public** in GitHub after its first publication.
 
@@ -132,7 +132,7 @@ docker compose ps
 
 On pushes to `main`, version tags, and manual workflow runs, `.github/workflows/docker.yml` publishes to GHCR. Pull requests build both architectures without publishing. Release tags such as `v1.2.3` additionally produce `1.2.3`, `1.2`, and `1` image tags; the default branch produces `latest`, and every published build gets a `sha-*` tag.
 
-If access is needed from another machine, keep the MCP port behind an authenticated HTTPS reverse proxy/tunnel rather than exposing it directly to the public internet.
+If access is needed from another machine, keep the MCP port behind an authenticated HTTPS reverse proxy/tunnel rather than exposing it directly to the public internet. For ChatGPT Web setup and the intended Poyto + web-search workflow, see [ChatGPT Web + Poyto MCP](docs/chatgpt-web.md).
 
 ## Quick start
 
