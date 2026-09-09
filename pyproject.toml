@@ -8,12 +8,11 @@ version = "0.2.0"
 description = "Poyto — unofficial Python client for POYP, reconstructed from observed app traffic."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
 authors = [{ name = "nezumi0627" }]
 keywords = ["poyp", "api", "client", "prediction-market"]
 classifiers = [
   "Development Status :: 3 - Alpha",
-  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
