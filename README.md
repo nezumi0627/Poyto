@@ -1,78 +1,28 @@
 # Poyto
 
-Unofficial typed Python client and CLI for **POYP**.
+Unofficial typed Python client, CLI, and optional MCP server for **POYP**.
 
 > [!IMPORTANT]
-> Poyto is an independent project and is not affiliated with, endorsed by, sponsored by, or otherwise connected to POYP. The service interface is undocumented and may change without notice. Use the project only with accounts, credentials, devices, and data you are authorized to access. See [DISCLAIMER.md](DISCLAIMER.md).
+> Poyto is an independent project and is not affiliated with, endorsed by, sponsored by, or otherwise connected to POYP. The service interface is undocumented and may change without notice. Use Poyto only with accounts, credentials, devices, and data you are authorized to access. See [DISCLAIMER.md](DISCLAIMER.md).
 
-## Try POYP
+## Overview
 
-If you are new to POYP, you can use the maintainer's referral link/code below. Under POYP's current referral offer, a successful eligible registration is shown as awarding **400 points to both the new user and the referrer**. Referral rewards and eligibility are controlled by POYP and may change.
+Poyto turns the observed POYP HTTP surface into a reusable Python package instead of tying API behavior to one script or automation host.
 
-- Referral link: https://poyp.go.link/fjwo2?referral_code=S-0627
-- Invite code: `S-0627`
-
-> This is a referral link: the maintainer may receive 400 points when an eligible new user registers through it.
-
-### 400 → 1,000 point goal
-
-Poyto documents an optional point-growth workflow that can treat the **400 referral points** (or a configured bankroll of up to 500 points) as total managed capital and aim for a **1,000-point balance**. It avoids all-in entries, refreshes an expired session automatically, considers only evidence-backed positions with a projected gross payout of at least 2x, and stops opening new positions once the target is reached. This is a target, not a guaranteed return. See [Point bankroll growth goal](docs/bankroll-growth-goal.md).
-
-## What Poyto can do
-
-Poyto currently covers the major supported POYP HTTP surfaces:
-
-- authentication with an existing token, `.har` / `.har.zip` session import, and Apple id-token exchange when the Apple credentials are already available
-- local session persistence, expiry metadata, automatic refresh policy, and one-time 401 recovery
-- account profile, balances, portfolio/history, transactions, missions, streaks, campaigns, notifications, referral data, blocked users, and walking-challenge status
-- market listing/detail/related/auxiliary data, positions, activity, charts, and asset prices
-- buy/sell operations
-- comments, replies, edit/delete/like, follow/unfollow, user profiles and social history
-- home/discovery, leaderboards, timeline/global-chat reads, and event submission
-- ad-reward claim API, including typed successful response fields
-- Python API plus CLI, with `--yes` confirmation for state-changing CLI commands
-- token files, environment configuration, masked session inspection, typed package metadata, and network-free regression tests
-- optional MCP server and reusable agent skill for conversational AI clients and scheduled automation hosts
-
-See [Capability inventory](docs/capabilities.md) for the per-file breakdown and evidence level of every major feature.
-
-## What is not proven
-
-Poyto explicitly tracks behavior that is not sufficiently established instead of guessing it. Important examples include:
-
-- automatically obtaining the initial Apple credentials without a HAR capture is still research in progress
-- POYP-specific refresh-token reuse windows, inactivity/session limits, simultaneous-refresh behavior, and all revoked/expired-token errors are not fully established
-- unlike-comment, market administration/creation/resolution, realtime sockets, direct messaging, arbitrary moderation controls, and many mutation routes are not currently supported
-- trading-engine formulas, settlement, slippage, fees, rate limits, anti-abuse behavior, and complete error schemas are unknown
-- ad-reward server-side eligibility/proof rules are unknown even though the `watch_ad` claim request and a successful response shape are implemented
-- reward values and daily limits are treated as server-provided values rather than hard-coded universal constants
-
-See [Known gaps and unverified behavior](docs/known-gaps.md) for the canonical do-not-claim list.
-
-## Code size
-
-Run:
-
-```bash
-python scripts/code_stats.py
+```text
+POYP API
+   ↑
+HTTP transport + session lifecycle
+   ↑
+resource modules
+   ↑
+PoytoClient
+   ├─ Python API
+   ├─ CLI
+   └─ MCP
 ```
 
-It reports physical and non-blank lines for `src/poyto/**/*.py`, separates core modules from `resources/`, reports tests, and prints each source file. CI runs the same measurement on Python 3.14.
-
-## What changed in 0.2
-
-- Pythonic, responsibility-based package layout
-- `PoytoClient(token=...)` accepts literal tokens and plaintext/JSON/dotenv token files
-- first-class environment-variable configuration
-- HAR/HAR.zip session import for practical initial bootstrap from authorized POYP traffic captures
-- automatic saved-session loading and refresh-token rotation handling
-- one-time authenticated 401 refresh/retry
-- CLI parser and command execution split from library code
-- resource modules split into account, markets, trades, social, discovery, and events
-- corrected BTC price route to `/api/prices/BTC`
-- secret-safe session/token inspection helpers
-- typed ad-reward success response
-- CI on Python 3.10–3.14 with pytest, Ruff, mypy, code statistics, and package build
+The project currently covers authentication/session persistence, account state, balances, portfolio, markets, activity, asset prices, trading, social features, notifications, rewards and selected discovery/event surfaces. Exact support and evidence level are tracked in [docs/capabilities.md](docs/capabilities.md) and [docs/known-gaps.md](docs/known-gaps.md).
 
 ## Install
 
@@ -83,51 +33,43 @@ python -m venv .venv
 pip install -e '.[dev]'
 ```
 
-For conversational AI / MCP support:
+For MCP / conversational-agent support:
 
 ```bash
 pip install -e '.[agent]'
-poyto-mcp
 ```
-
-See [AI agents, MCP, and scheduled runs](docs/agents.md) and the reusable [`skills/poyto/SKILL.md`](skills/poyto/SKILL.md).
 
 ## Quick start
 
 ```python
 from poyto import PoytoClient
 
-with PoytoClient(token="YOUR_ACCESS_TOKEN") as client:
+with PoytoClient() as client:
     print(client.profile())
     print(client.balances())
+    print(client.markets(limit=20))
 ```
 
-Token files may be plaintext, dotenv, or JSON. You can also use `token_file="token.txt"`, `token="@token.txt"`, or `token="file:token.txt"`.
+The CLI uses the same session/configuration layer:
 
-## Persistent login
-
-For a first bootstrap, the currently reliable path is to import the POYP authentication response from a `.har` or `.har.zip` capture made from an account/device you are authorized to use:
-
-```powershell
-poyto login --har "capture.har.zip"
+```bash
 poyto profile
 poyto balances
 poyto markets --limit 20
 ```
 
-Python code can do the same:
+State-changing CLI commands require explicit `--yes` where defined.
 
-```python
-from poyto import PoytoClient
+## Authentication and persistent sessions
 
-with PoytoClient() as client:
-    client.login_from_har("capture.har.zip")
-    print(client.profile())
+A practical initial bootstrap is importing an authorized POYP authentication response from a `.har` or `.har.zip` capture:
+
+```bash
+poyto login --har capture.har.zip
+poyto profile
 ```
 
-The imported session is stored outside the repository. Once a refresh token is saved, Poyto can maintain the session through the live-verified POYP refresh exchange while that credential remains valid, so another HAR capture is not normally needed.
-
-You can also persist an access token manually with `poyto login` or the Python token APIs documented in [Authentication](docs/authentication.md).
+Poyto stores the imported session outside the repository and can persist refreshed credentials when the server accepts the refresh token.
 
 Default session locations:
 
@@ -137,72 +79,114 @@ Other:   $XDG_STATE_HOME/poyto/session.json
          or ~/.local/state/poyto/session.json
 ```
 
-`POYTO_SESSION_FILE` overrides the location.
+`POYTO_SESSION_FILE` overrides the path. HAR files and session files may contain sensitive credentials; never commit or paste them into issues/chats.
 
-Real HAR captures can contain cookies, authorization headers, tokens, device identifiers, and unrelated private traffic. Keep them outside the repository and do not attach them to issues or CI logs.
+See [Authentication](docs/authentication.md), [Configuration](docs/configuration.md), and [Refresh tokens](docs/refresh-tokens.md).
 
-## Environment variables
+## MCP
 
-Common variables include `POYTO_TOKEN`, `POYTO_ACCESS_TOKEN`, `POYTO_REFRESH_TOKEN`, `POYTO_TOKEN_FILE`, `POYTO_SESSION_FILE`, `POYTO_AUTO_REFRESH`, `POYTO_API_BASE`, `POYTO_AUTH_BASE`, `POYTO_TIMEOUT`, and device metadata variables. Historical `POYP_*` aliases remain supported. See [configuration](docs/configuration.md).
-
-## Refresh tokens
-
-When expiry metadata and a refresh token are available, Poyto refreshes shortly before expiry and persists the newly returned access/refresh pair. If an authenticated POYP request receives HTTP 401, Poyto attempts one refresh and retries the request once.
-
-The exchange used by Poyto — `POST https://auth.poyp.app/auth/v1/token?grant_type=refresh_token` with the refresh token in the JSON body — was live-verified on 2026-09-09 using an existing authorized POYP session, and the returned session successfully authenticated a subsequent POYP API request. Project-specific lifetime, reuse, concurrency, and invalidation policies remain partially unknown. See [refresh tokens](docs/refresh-tokens.md).
-
-## API examples
-
-```python
-from poyto import PoytoClient
-
-with PoytoClient() as client:
-    print(client.profile())
-    print(client.balances())
-    print(client.markets(limit=20))
-    print(client.market("MARKET_ID"))
-    print(client.asset_price("BTC"))
-```
-
-State-changing operations include buy/sell, comments, likes, follow/unfollow, referral-code update, notification read-all, and ad-reward claim. The CLI requires `--yes` for state-changing commands.
-
-```powershell
-poyto buy MARKET_ID 1 10 --yes
-poyto sell MARKET_ID 0 0.5 --yes
-poyto comment MARKET_ID "hello" --yes
-poyto follow USER_ID --yes
-poyto claim-ad-reward --yes
-```
-
-## Architecture
+Poyto includes first-class optional Model Context Protocol support under `src/poyto/mcp/`.
 
 ```text
-config -> credentials/session -> HTTP transport -> resources -> high-level client -> CLI/MCP
+src/poyto/mcp/
+├─ config.py      environment + CLI settings
+├─ server.py      FastMCP server and POYP tool registration
+└─ __main__.py    poyto-mcp entrypoint
 ```
 
-Resource methods live under `src/poyto/resources/`, transport/auth exchange under `_http.py`, lifecycle policy under `auto.py`, HAR session extraction under `har_loader.py`, CLI parsing/execution in separate modules, and the optional conversational-agent bridge in `mcp_server.py`. See [architecture](docs/architecture.md).
+The old `poyto.mcp_server` module remains as a compatibility shim; new code should use `poyto.mcp`.
+
+Start the default local stdio server:
+
+```bash
+poyto-mcp
+```
+
+Start a local Streamable HTTP endpoint:
+
+```bash
+poyto-mcp --transport streamable-http --host 127.0.0.1 --port 8765
+```
+
+For remote/research-only use, enable read-only mode so mutation tools are not registered:
+
+```bash
+poyto-mcp --transport streamable-http --host 127.0.0.1 --port 8765 --read-only
+```
+
+or set:
+
+```bash
+POYTO_MCP_READ_ONLY=true
+```
+
+Read tools expose POYP account/market state. Mutation tools such as `buy` and `sell` require an explicit `confirm=true` even when the server is not read-only. MCP tool annotations describe read/destructive intent to compatible hosts.
+
+Poyto MCP deliberately does **not** mix generic filesystem/root-server control into the default server. The MCP endpoint is for POYP capabilities; generic shell or host administration should remain a separate trust boundary if introduced later.
+
+Full setup, tool policy, environment variables, and security guidance: **[MCP integration](docs/mcp.md)**.
+
+## What Poyto can do
+
+- existing-token, HAR/HAR.zip, and supported Apple id-token authentication paths
+- persistent sessions, expiry metadata, refresh handling, and one-time authenticated 401 retry
+- profile, balances, portfolio/history, transactions, missions, streaks, campaigns and notifications
+- market listing/detail/activity/charts/prices and portfolio positions
+- buy/sell operations
+- comments, replies, likes, follows and user/social reads
+- selected discovery, event, reward, referral and loss-gacha surfaces
+- Python API, CLI, MCP and reusable agent skill
+- typed package metadata and network-free regression tests
+
+See [Capability inventory](docs/capabilities.md) for the precise supported surface.
+
+## What is not proven
+
+Poyto intentionally separates observed behavior from assumptions. Important unknowns include service-side trading formulas, settlement/slippage/fees, complete rate-limit and anti-abuse behavior, several account/session edge cases, realtime/private messaging, moderation/market-admin APIs, and server-side reward eligibility rules.
+
+See [Known gaps](docs/known-gaps.md).
+
+## Referral
+
+If you are new to POYP, the maintainer currently provides this referral:
+
+- Referral link: https://poyp.go.link/fjwo2?referral_code=S-0627
+- Invite code: `S-0627`
+
+POYP controls reward amounts and eligibility and may change them. The maintainer may receive a referral reward when an eligible new account registers through the link/code.
+
+## Project layout
+
+```text
+src/poyto/
+├─ resources/       API responsibility modules
+├─ mcp/             optional MCP integration
+├─ _http.py         HTTP/auth exchange
+├─ auto.py          client lifecycle + session policy
+├─ client.py        low-level client composition
+├─ cli*.py          CLI parser/dispatch/entrypoint
+├─ har_loader.py    secret-aware HAR import
+└─ session_store.py persistent session storage
+```
+
+Architecture details: [docs/architecture.md](docs/architecture.md).
 
 ## Documentation
 
-- [Capability inventory and LOC breakdown](docs/capabilities.md)
-- [Known gaps and unverified behavior](docs/known-gaps.md)
+- [MCP integration](docs/mcp.md)
+- [Capability inventory](docs/capabilities.md)
+- [Known gaps](docs/known-gaps.md)
 - [Observed endpoints](docs/endpoints.md)
-- [Trading API evidence](docs/trading.md)
-- [Android APK/Hermes endpoint inventory](docs/apk-endpoints.md)
-- [Endpoint inventory workflow](docs/endpoint-inventory.md)
+- [Trading](docs/trading.md)
 - [Configuration](docs/configuration.md)
 - [Authentication](docs/authentication.md)
 - [Refresh tokens](docs/refresh-tokens.md)
-- [Ad rewards](docs/ad-rewards.md)
-- [Point bankroll growth goal](docs/bankroll-growth-goal.md)
-- [Architecture](docs/architecture.md)
 - [Python API](docs/python-api.md)
 - [CLI reference](docs/cli.md)
-- [AI agents, MCP, and scheduled runs](docs/agents.md)
+- [AI agents and scheduled runs](docs/agents.md)
+- [Architecture](docs/architecture.md)
 - [Reverse-engineering notes](docs/reverse-engineering.md)
 - [Poyto agent skill](skills/poyto/SKILL.md)
-- [AI/contributor guide](AGENTS.md)
-- [Disclaimer](DISCLAIMER.md)
 - [Security](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 
@@ -221,8 +205,8 @@ CI validates Python 3.10–3.14.
 
 ## Security
 
-Never commit access tokens, refresh tokens, identity tokens, cookies, session files, HAR captures, or stable device identifiers. Keep sensitive local debugging artifacts outside the repository.
+Never commit access tokens, refresh tokens, identity tokens, cookies, session files, HAR captures, tunnel credentials, or stable device identifiers. Keep remote MCP endpoints private or behind an appropriate authenticated transport. See [SECURITY.md](SECURITY.md).
 
 ## License
 
-MIT. See [LICENSE](LICENSE). The project disclaimer is in [DISCLAIMER.md](DISCLAIMER.md).
+MIT. See [LICENSE](LICENSE).
