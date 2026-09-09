@@ -1,17 +1,25 @@
 from __future__ import annotations
 
-from .config import build_parser
+import json
+
+from .config import build_parser, settings_from_args
 from .server import build_server
 
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    settings = settings_from_args(args)
+
+    if args.print_config:
+        print(json.dumps(settings.as_public_dict(), indent=2, sort_keys=True))
+        return
+
     server = build_server(
-        host=args.host,
-        port=args.port,
-        read_only=args.read_only,
+        host=settings.host,
+        port=settings.port,
+        read_only=settings.read_only,
     )
-    server.run(transport=args.transport)
+    server.run(transport=settings.transport)
 
 
 if __name__ == "__main__":
