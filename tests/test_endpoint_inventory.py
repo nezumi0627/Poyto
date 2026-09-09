@@ -1,13 +1,26 @@
+import importlib.util
 import io
+import sys
 import zipfile
+from pathlib import Path
 
-from tools.endpoint_inventory import (
-    Endpoint,
-    records,
-    scan_apk_zip,
-    scan_decompiled_calls,
-    scan_printable_blob,
-)
+
+def _load_endpoint_inventory():
+    path = Path(__file__).resolve().parents[1] / "tools" / "endpoint_inventory.py"
+    spec = importlib.util.spec_from_file_location("poyto_endpoint_inventory", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+endpoint_inventory = _load_endpoint_inventory()
+Endpoint = endpoint_inventory.Endpoint
+records = endpoint_inventory.records
+scan_apk_zip = endpoint_inventory.scan_apk_zip
+scan_decompiled_calls = endpoint_inventory.scan_decompiled_calls
+scan_printable_blob = endpoint_inventory.scan_printable_blob
 
 
 def test_scan_decompiled_calls_recovers_method_and_normalized_route() -> None:
