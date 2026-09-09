@@ -14,6 +14,10 @@ If you are new to POYP, you can use the maintainer's referral link/code below. U
 
 > This is a referral link: the maintainer may receive 400 points when an eligible new user registers through it.
 
+### 400 → 1,000 point goal
+
+Poyto documents an optional point-growth workflow that can treat the **400 referral points** (or a configured bankroll of up to 500 points) as total managed capital and aim for a **1,000-point balance**. It avoids all-in entries, refreshes an expired session automatically, considers only evidence-backed positions with a projected gross payout of at least 2x, and stops opening new positions once the target is reached. This is a target, not a guaranteed return. See [Point bankroll growth goal](docs/bankroll-growth-goal.md).
+
 ## What Poyto can do
 
 Poyto currently covers the major supported POYP HTTP surfaces:
@@ -189,6 +193,7 @@ Resource methods live under `src/poyto/resources/`, transport/auth exchange unde
 - [Authentication](docs/authentication.md)
 - [Refresh tokens](docs/refresh-tokens.md)
 - [Ad rewards](docs/ad-rewards.md)
+- [Point bankroll growth goal](docs/bankroll-growth-goal.md)
 - [Architecture](docs/architecture.md)
 - [Python API](docs/python-api.md)
 - [CLI reference](docs/cli.md)
