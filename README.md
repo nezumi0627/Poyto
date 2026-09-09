@@ -163,6 +163,8 @@ Resource methods live under `src/poyto/resources/`, transport/auth exchange unde
 - [Capability inventory and LOC breakdown](docs/capabilities.md)
 - [Known gaps and unverified behavior](docs/known-gaps.md)
 - [Observed endpoints](docs/endpoints.md)
+- [Android APK/Hermes endpoint inventory](docs/apk-endpoints.md)
+- [Endpoint inventory workflow](docs/endpoint-inventory.md)
 - [Configuration](docs/configuration.md)
 - [Authentication](docs/authentication.md)
 - [Refresh tokens](docs/refresh-tokens.md)
