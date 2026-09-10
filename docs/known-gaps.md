@@ -6,13 +6,14 @@ If a behavior is listed here, the project either lacks sufficient POYP evidence 
 
 ## Authentication gaps
 
-### Refresh-token exchange is not directly established
+### Refresh-token policy details are not fully established
 
-Poyto implements the standard Supabase/GoTrue-style refresh exchange because the authentication backend is Supabase-based and issues refresh tokens. The exact POYP refresh request/response behavior is still treated as **inferred**, not guaranteed.
+The POYP refresh endpoint and request shape were live-verified on 2026-09-09, and the returned
+session was accepted by the authenticated POYP API. What remains unknown is POYP's exact
+project-specific refresh/session policy.
 
 Unknown details include:
 
-- whether POYP changes the standard request shape
 - exact refresh-token reuse/rotation behavior in this project
 - project-specific refresh-token invalidation policy
 - server behavior after simultaneous refreshes
@@ -214,7 +215,11 @@ Poyto currently focuses on HTTP APIs. There is no sufficiently backed implementa
 
 ## Device identity and headers
 
-Requests use `x-poyp-*` device/application metadata. Poyto can send configurable equivalents, but does not claim to know which fields are mandatory in every context or how server-side device trust is calculated.
+Requests use `x-poyp-*` device/application metadata. Static analysis of the official app establishes
+that its Device ID is generated once (UUID when available), stored under `poyp_device_id`, and then
+reused. Poyto now implements the same local generate-once/reuse lifecycle and keeps it separate
+from auth-session logout. This does not establish which fields are mandatory in every server
+context or how server-side device trust is calculated.
 
 Unknown:
 
