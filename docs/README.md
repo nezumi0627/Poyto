@@ -15,5 +15,6 @@ Start here:
 - [Endpoints](endpoints.md) — observed POYP routes
 - [Trading](trading.md) — buy/sell evidence and cautions
 - [Agents](agents.md) — AI-agent workflows around Poyto
+- [Service model and legal context](service-model-and-legal-context.md) — POYP Terms facts, age evidence, automation classification, and Japan legal context
 
 Poyto separates its core POYP client from integrations. MCP lives in `src/poyto/mcp/`; generic host administration is intentionally not part of the default MCP server.
