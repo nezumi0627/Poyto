@@ -38,6 +38,62 @@ def test_client_claim_settlement_matches_implemented_shape() -> None:
     assert json.loads(request.content) == {"marketId": "market-id", "positionIndex": 3}
 
 
+@pytest.mark.parametrize("coin_ratio", [0, 10, 50, 100])
+def test_client_claim_settlement_split_matches_static_schema(coin_ratio: int) -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"ok": True})
+
+    with PoytoClient(
+        access_token="test-access",
+        auto_load_session=False,
+        save_session=False,
+        transport=httpx.MockTransport(handler),
+    ) as client:
+        assert client.claim_settlement_split("market-id", coin_ratio) == {"ok": True}
+
+    assert len(seen) == 1
+    request = seen[0]
+    assert request.method == "POST"
+    assert request.url.path == "/api/settlements/claim-split"
+    assert json.loads(request.content) == {"marketId": "market-id", "coinRatio": coin_ratio}
+
+
+def test_client_claim_settlement_split_includes_optional_ticket() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"ok": True})
+
+    with PoytoClient(
+        access_token="test-access",
+        auto_load_session=False,
+        save_session=False,
+        transport=httpx.MockTransport(handler),
+    ) as client:
+        client.claim_settlement_split("market-id", 70, ticket_id="ticket-id")
+
+    assert json.loads(seen[0].content) == {
+        "marketId": "market-id",
+        "coinRatio": 70,
+        "ticketId": "ticket-id",
+    }
+
+
+@pytest.mark.parametrize("coin_ratio", [-10, 1, 55, 110])
+def test_client_claim_settlement_split_rejects_invalid_ratio(coin_ratio: int) -> None:
+    with PoytoClient(
+        access_token="test-access",
+        auto_load_session=False,
+        save_session=False,
+    ) as client:
+        with pytest.raises(ValueError, match="steps of 10"):
+            client.claim_settlement_split("market-id", coin_ratio)
+
+
 def test_cli_settlement_claim_requires_yes() -> None:
     parser = build_parser()
     args = parser.parse_args(["settlement-claim", "market-id", "3"])
@@ -62,6 +118,59 @@ def test_cli_settlement_claim_dispatches() -> None:
         "marketId": "market-id",
         "positionIndex": 3,
     }
+
+
+def test_cli_settlement_claim_dispatches_selected_split() -> None:
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "settlement-claim",
+            "market-id",
+            "--coin-ratio",
+            "60",
+            "--ticket-id",
+            "ticket-id",
+            "--yes",
+        ]
+    )
+
+    class Client(_CLIClientStub):
+        def claim_settlement_split(
+            self,
+            market_id: str,
+            coin_ratio: int,
+            *,
+            ticket_id: str | None = None,
+        ):
+            return {
+                "marketId": market_id,
+                "coinRatio": coin_ratio,
+                "ticketId": ticket_id,
+            }
+
+    assert execute(parser, args, Client()) == {  # type: ignore[arg-type]
+        "marketId": "market-id",
+        "coinRatio": 60,
+        "ticketId": "ticket-id",
+    }
+
+
+def test_cli_settlement_claim_requires_position_for_normal_claim() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["settlement-claim", "market-id", "--yes"])
+
+    with pytest.raises(SystemExit):
+        execute(parser, args, _CLIClientStub())  # type: ignore[arg-type]
+
+
+def test_cli_settlement_claim_rejects_ticket_without_split() -> None:
+    parser = build_parser()
+    args = parser.parse_args(
+        ["settlement-claim", "market-id", "3", "--ticket-id", "ticket-id", "--yes"]
+    )
+
+    with pytest.raises(SystemExit):
+        execute(parser, args, _CLIClientStub())  # type: ignore[arg-type]
 
 
 def test_cli_settlement_claim_rejects_negative_position_index() -> None:

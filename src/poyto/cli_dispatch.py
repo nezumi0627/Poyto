@@ -158,8 +158,18 @@ def execute(parser: argparse.ArgumentParser, args: argparse.Namespace, client: P
         return client.claim_ad_reward(source=args.source)
     if command == "settlement-claim":
         require_yes(parser, args, "予測市場の決済報酬claim")
-        if args.position_index < 0:
+        if args.position_index is not None and args.position_index < 0:
             parser.error("position_index は 0 以上である必要があります")
+        if args.ticket_id is not None and args.coin_ratio is None:
+            parser.error("--ticket-id を使う場合は --coin-ratio も指定してください")
+        if args.coin_ratio is not None:
+            return client.claim_settlement_split(
+                args.market_id,
+                args.coin_ratio,
+                ticket_id=args.ticket_id,
+            )
+        if args.position_index is None:
+            parser.error("通常の settlement claim では position_index が必要です")
         return client.claim_settlement(args.market_id, args.position_index)
     if command == "loss-gacha-status":
         return client.loss_gacha_status(args.market_id)

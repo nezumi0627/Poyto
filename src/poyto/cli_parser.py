@@ -107,7 +107,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     settlement_claim = sub.add_parser("settlement-claim")
     settlement_claim.add_argument("market_id")
-    settlement_claim.add_argument("position_index", type=int)
+    settlement_claim.add_argument("position_index", type=int, nargs="?")
+    settlement_claim.add_argument("--coin-ratio", type=int, choices=range(0, 101, 10))
+    settlement_claim.add_argument("--ticket-id")
     settlement_claim.add_argument("--yes", action="store_true")
 
     loss_status = sub.add_parser("loss-gacha-status")

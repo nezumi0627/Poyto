@@ -125,6 +125,22 @@ class AccountMixin(ResourceMixin):
             json={"marketId": market_id, "positionIndex": position_index},
         )
 
+    def claim_settlement_split(
+        self,
+        market_id: str,
+        coin_ratio: int,
+        *,
+        ticket_id: str | None = None,
+    ) -> Any:
+        """Claim a settled payout with a selected point/coin split."""
+        if not 0 <= coin_ratio <= 100 or coin_ratio % 10 != 0:
+            raise ValueError("coin_ratio must be between 0 and 100 in steps of 10")
+
+        payload: dict[str, Any] = {"marketId": market_id, "coinRatio": coin_ratio}
+        if ticket_id is not None:
+            payload["ticketId"] = ticket_id
+        return self.post("/api/settlements/claim-split", json=payload)
+
     def blocked_users(self) -> Any:
         return self.get("/api/me/blocked-users")
 

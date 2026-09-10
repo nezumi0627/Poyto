@@ -19,22 +19,22 @@ Measured by CI with `python scripts/code_stats.py`:
 
 | Area | Files | Physical lines | Non-blank lines |
 | --- | ---: | ---: | ---: |
-| Core/MCP source outside `resources/` | 20 | 2,004 | 1,705 |
-| Resource wrappers `src/poyto/resources/*.py` | 7 | 482 | 396 |
-| **Source total** | **27** | **2,486** | **2,101** |
-| Tests | 9 | 1,107 | 886 |
+| Core/MCP source outside `resources/` | 20 | 2,029 | 1,730 |
+| Resource wrappers `src/poyto/resources/*.py` | 7 | 498 | 410 |
+| **Source total** | **27** | **2,527** | **2,140** |
+| Tests | 9 | 1,220 | 977 |
 
 Per-source-file snapshot:
 
 | File | Lines | Non-blank | Main responsibility |
 | --- | ---: | ---: | --- |
 | `src/poyto/_http.py` | 195 | 171 | HTTP transport, headers, auth exchange/refresh/logout |
-| `src/poyto/mcp/server.py` | 329 | 289 | FastMCP server and POYP tools |
+| `src/poyto/mcp/server.py` | 342 | 302 | FastMCP server and POYP tools |
 | `src/poyto/auto.py` | 219 | 197 | credential loading, persistence, auto-refresh, 401 retry |
-| `src/poyto/cli_dispatch.py` | 192 | 179 | CLI command execution |
+| `src/poyto/cli_dispatch.py` | 202 | 189 | CLI command execution |
 | `src/poyto/token_loader.py` | 163 | 136 | token/text/file parsing |
-| `src/poyto/resources/account.py` | 144 | 113 | account, balances, notifications, referral and claims |
-| `src/poyto/cli_parser.py` | 135 | 107 | CLI arguments and command definitions |
+| `src/poyto/resources/account.py` | 160 | 127 | account, balances, notifications, referral and claims |
+| `src/poyto/cli_parser.py` | 137 | 109 | CLI arguments and command definitions |
 | `src/poyto/resources/social.py` | 129 | 107 | users, follows, comments/social reads/writes |
 | `src/poyto/har_loader.py` | 111 | 92 | secret-aware HAR/HAR.zip session import |
 | `src/poyto/models.py` | 101 | 80 | typed structures |
@@ -128,9 +128,15 @@ inventory independently shows `POST /api/settlements/claim`, while the current J
 covered by offline request-shape tests. This repository does not yet contain independent live
 request/response evidence proving that body or a successful response.
 
-The CLI command `settlement-claim` requires `--yes`, and the MCP tool `settlement_claim`
-requires `confirm=true`. Claim eligibility, payout semantics, response fields and the other APK
-settlement routes remain unverified.
+`claim_settlement_split(market_id, coin_ratio, ticket_id=...)` is backed by APK static callsite and
+schema evidence for `POST /api/settlements/claim-split`. The established request keys are
+`marketId`, `coinRatio`, and optional `ticketId`; `coinRatio` accepts 0 through 100 in steps of 10.
+The APK schema also describes split payout response fields, but this repository does not yet have
+independent live request/response evidence for a successful split claim.
+
+The CLI command `settlement-claim` accepts optional `--coin-ratio` and `--ticket-id` selection and
+requires `--yes`. The MCP tool `settlement_claim` exposes the same optional selection and requires
+`confirm=true`. Server-side claim eligibility and payout rules remain unverified.
 
 ## Comments and social
 
@@ -156,7 +162,7 @@ Implemented and observed: read referral code/stats, check code availability, upd
 
 Common commands include authentication (`login`, `login-apple`, `logout`, `refresh`), account reads, markets, market detail, activity, charts, prices, transactions, buy/sell, settlement claim, comments, follow/unfollow, referral operations, notification read-all, ad-reward claim, user inspection and raw requests.
 
-CLI implementation footprint: `cli_parser.py` 135 lines + `cli_dispatch.py` 192 + `cli.py` 28 = **355 physical lines**.
+CLI implementation footprint: `cli_parser.py` 137 lines + `cli_dispatch.py` 202 + `cli.py` 28 = **367 physical lines**.
 
 State-changing commands require explicit `--yes` where defined.
 
