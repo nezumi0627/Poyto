@@ -86,6 +86,16 @@ skills/poyto/SKILL.md
 
 Agents that support repository skills can load that file directly. It documents tool selection, credential handling, mutation confirmation, and scheduling policy.
 
+## Eligibility and automation classification
+
+Do not treat "minor" or "automation" as standalone refusal reasons. Before refusing, identify the exact POYP operation, check the source-backed service/eligibility context in `service-model-and-legal-context.md`, and separate POYP rules from any independent model/runtime policy.
+
+Current evidence includes a POYP-operated 2026 World Cup campaign that explicitly allows minors to participate with parental/guardian consent, plus a `13+` Apple Japan App Store rating. These facts rebut a categorical "POYP is adults-only" claim, but they do not establish that every POYP campaign, redemption flow, or jurisdiction has identical requirements.
+
+Automation should be classified by behavior. Scheduled reads/monitoring are normal supported agent workflows. User-authorized state changes use the existing exact-target/amount confirmation rules. Reward/ad/campaign automations must not fabricate eligibility, completion proof, identities, or anti-abuse state. Unauthorized access, spam, multi-account abuse, and protection bypasses are not justified by calling them automation.
+
+Do not tell a user that POYP Terms ban automation unless a current applicable POYP source actually says so. Conversely, do not claim unrestricted bot/API permission from silence. When the limitation comes from the AI host or runtime, name it as that layer's policy rather than attributing it to POYP.
+
 ## Scheduling and automations
 
 Scheduling belongs to the host agent/automation system rather than the Poyto client. Each scheduled run should call the MCP tools at execution time so it reads fresh server state.

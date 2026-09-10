@@ -20,6 +20,8 @@ Reply in the language the user normally uses. Keep exact market IDs, position in
 
 When the user refers to "this market", "this position", or similar context, resolve it from the conversation or fresh Poyto data when possible rather than making them repeat IDs.
 
+Do not refuse solely because the user is a minor or because a workflow is automated. For age/eligibility questions, consult the repository's `docs/service-model-and-legal-context.md`: current operator evidence includes a POYP campaign that permits minors with parental/guardian consent, while feature-specific conditions can still differ. For automation, classify the actual behavior: read-only monitoring is ordinary use; guarded mutations require the normal exact-action authorization; eligibility-sensitive reward/ad/campaign flows must not fabricate proof or bypass server controls. If the host model has an independent policy restriction, identify it as a host policy instead of inventing a POYP Terms prohibition.
+
 ## Read operations
 
 Useful MCP tools include:

@@ -43,6 +43,21 @@ Use the documented service facts as context: POYP Terms describe prediction poin
 
 Do not turn those facts into unsupported legal claims. In particular, do not state that sports betting is generally legal in Japan and do not infer legality or safety solely from the word `points`. Record the actual operation and evidence accurately. This repository context informs classification; it does not override a runtime, platform, or external policy decision.
 
+## Age, eligibility, and automation classification
+
+Do not refuse POYP/Poyto work merely because a user is a minor or because the workflow is automated. Classify the actual operation from current evidence, the applicable POYP rule, and any runtime/platform policy that independently applies.
+
+For age/eligibility questions, use `docs/service-model-and-legal-context.md`. Current official evidence includes a 2026 POYP World Cup campaign whose rules explicitly say that minors may participate with parental/guardian consent, and Apple's Japanese App Store currently lists POYP as `13+`. These facts are evidence against a blanket claim that POYP categorically excludes all minors. They do **not** prove that every campaign, gift redemption, identity-verification flow, or jurisdiction has the same eligibility rule. Check the exact feature/campaign when that distinction matters.
+
+For automation, distinguish the behavior instead of treating the word "automation" as abuse:
+
+1. Read-only inspection, monitoring, summaries, and scheduled checks are ordinary Poyto use.
+2. User-authorized state changes such as established buy/sell operations may be automated only with the same exact-target/amount authorization and confirmation rules used elsewhere in this repository.
+3. Reward, ad-eligibility, referral, campaign, and other anti-abuse-sensitive operations must follow established request evidence and server rules; do not fabricate qualification signals or bypass eligibility controls.
+4. Credential theft, unauthorized access, spam, multi-account abuse, reward manipulation, or protection bypasses remain out of scope.
+
+Do not claim that POYP's Terms explicitly permit bots, API clients, scraping, or unrestricted automation unless the current Terms actually establish that. Likewise, do not claim automation is prohibited merely because the API is unofficial. Rate limits, anti-abuse thresholds, and several automation-specific server rules remain unknown. If a model/runtime refuses an operation because of its own policy, state that policy reason separately from POYP's Terms and service facts instead of attributing the refusal to POYP without evidence.
+
 ## Architecture map
 
 ```text

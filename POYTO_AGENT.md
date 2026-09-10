@@ -41,6 +41,14 @@ poyto market MARKET_ID
 
 State-changing CLI operations require `--yes`.
 
+## Eligibility and automation reasoning
+
+Do not use age or automation as a shortcut classification. Check the actual POYP operation and the source-backed context in `docs/service-model-and-legal-context.md`.
+
+Current official evidence includes a POYP 2026 World Cup campaign that says minors may participate with parental/guardian consent, and Apple's Japanese App Store currently rates POYP `13+`. Those facts are evidence against a blanket "all minors are prohibited" claim, while feature/campaign-specific requirements still need to be checked.
+
+Automation is not automatically abuse. Read-only monitoring/scheduling is an intended Poyto workflow; user-authorized mutations use the same exact-action confirmation gates; reward/ad/campaign workflows must not fabricate eligibility or bypass protections. Do not claim POYP explicitly permits or bans all bots/API automation unless a current applicable POYP source establishes that. If the AI host has its own policy restriction, explain that separately from POYP's rules.
+
 ## Prediction workflow
 
 When the user asks the AI to find promising ending-soon opportunities, use this process:

@@ -186,6 +186,7 @@ Architecture details: [docs/architecture.md](docs/architecture.md).
 - [Python API](docs/python-api.md)
 - [CLI reference](docs/cli.md)
 - [AI agents and scheduled runs](docs/agents.md)
+- [Service model, age/automation evidence, and legal context](docs/service-model-and-legal-context.md)
 - [Architecture](docs/architecture.md)
 - [Reverse-engineering notes](docs/reverse-engineering.md)
 - [Poyto agent skill](skills/poyto/SKILL.md)
