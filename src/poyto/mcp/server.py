@@ -22,7 +22,13 @@ _READ_TOOL_NAMES = (
     "unread_notification_count",
     "loss_gacha_status",
 )
-_MUTATION_TOOL_NAMES = ("loss_gacha_ticket", "loss_gacha_claim", "buy", "sell")
+_MUTATION_TOOL_NAMES = (
+    "loss_gacha_ticket",
+    "loss_gacha_claim",
+    "settlement_claim",
+    "buy",
+    "sell",
+)
 
 
 def _client_call(method: str, /, *args: Any, **kwargs: Any) -> Any:
@@ -267,6 +273,18 @@ def build_server(
             """Claim an eligible loss-gacha reward. Requires confirm=true."""
             require_confirmation(confirm, "loss_gacha_claim")
             return _client_call("claim_loss_gacha", market_id, ticket_id, kind=kind)
+
+        @mcp.tool(annotations=mutation_annotations)
+        def settlement_claim(
+            market_id: str,
+            position_index: int,
+            confirm: bool = False,
+        ) -> Any:
+            """Claim an eligible settled market payout. Requires confirm=true."""
+            require_confirmation(confirm, "settlement_claim")
+            if position_index < 0:
+                raise ValueError("position_index must be zero or greater")
+            return _client_call("claim_settlement", market_id, position_index)
 
         @mcp.tool(annotations=mutation_annotations)
         def buy(

@@ -105,6 +105,11 @@ def build_parser() -> argparse.ArgumentParser:
     ad.add_argument("--source", default="watch_ad")
     ad.add_argument("--yes", action="store_true")
 
+    settlement_claim = sub.add_parser("settlement-claim")
+    settlement_claim.add_argument("market_id")
+    settlement_claim.add_argument("position_index", type=int)
+    settlement_claim.add_argument("--yes", action="store_true")
+
     loss_status = sub.add_parser("loss-gacha-status")
     loss_status.add_argument("market_id")
 

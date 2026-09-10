@@ -59,7 +59,12 @@ poyto follow USER_ID --yes
 poyto unfollow USER_ID --yes
 poyto set-referral CODE --yes
 poyto claim-ad-reward --yes
+poyto settlement-claim MARKET_ID POSITION_INDEX --yes
 ```
+
+`settlement-claim` uses the currently implemented/inferred settlement request shape. The route is
+visible in the APK static inventory, but live request/response success has not yet been
+independently established in this repository.
 
 ## Raw request escape hatch
 

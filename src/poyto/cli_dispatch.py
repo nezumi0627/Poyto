@@ -156,6 +156,11 @@ def execute(parser: argparse.ArgumentParser, args: argparse.Namespace, client: P
     if command == "claim-ad-reward":
         require_yes(parser, args, "報酬claim")
         return client.claim_ad_reward(source=args.source)
+    if command == "settlement-claim":
+        require_yes(parser, args, "予測市場の決済報酬claim")
+        if args.position_index < 0:
+            parser.error("position_index は 0 以上である必要があります")
+        return client.claim_settlement(args.market_id, args.position_index)
     if command == "loss-gacha-status":
         return client.loss_gacha_status(args.market_id)
     if command == "loss-gacha-ticket":

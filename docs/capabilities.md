@@ -19,36 +19,42 @@ Measured by CI with `python scripts/code_stats.py`:
 
 | Area | Files | Physical lines | Non-blank lines |
 | --- | ---: | ---: | ---: |
-| Core `src/poyto/*.py` | 14 | 1,274 | 1,081 |
-| Resource wrappers `src/poyto/resources/*.py` | 7 | 444 | 362 |
-| **Source total** | **21** | **1,718** | **1,443** |
-| Tests | 4 | 412 | 330 |
+| Core/MCP source outside `resources/` | 20 | 2,004 | 1,705 |
+| Resource wrappers `src/poyto/resources/*.py` | 7 | 482 | 396 |
+| **Source total** | **27** | **2,486** | **2,101** |
+| Tests | 9 | 1,107 | 886 |
 
 Per-source-file snapshot:
 
 | File | Lines | Non-blank | Main responsibility |
 | --- | ---: | ---: | --- |
 | `src/poyto/_http.py` | 195 | 171 | HTTP transport, headers, auth exchange/refresh/logout |
-| `src/poyto/cli_dispatch.py` | 174 | 161 | CLI command execution |
-| `src/poyto/auto.py` | 170 | 152 | credential loading, persistence, auto-refresh, 401 retry |
+| `src/poyto/mcp/server.py` | 329 | 289 | FastMCP server and POYP tools |
+| `src/poyto/auto.py` | 219 | 197 | credential loading, persistence, auto-refresh, 401 retry |
+| `src/poyto/cli_dispatch.py` | 192 | 179 | CLI command execution |
 | `src/poyto/token_loader.py` | 163 | 136 | token/text/file parsing |
+| `src/poyto/resources/account.py` | 144 | 113 | account, balances, notifications, referral and claims |
+| `src/poyto/cli_parser.py` | 135 | 107 | CLI arguments and command definitions |
 | `src/poyto/resources/social.py` | 129 | 107 | users, follows, comments/social reads/writes |
-| `src/poyto/cli_parser.py` | 116 | 92 | CLI arguments and command definitions |
-| `src/poyto/resources/account.py` | 106 | 79 | account, balances, notifications, referral, ad reward |
+| `src/poyto/har_loader.py` | 111 | 92 | secret-aware HAR/HAR.zip session import |
+| `src/poyto/models.py` | 101 | 80 | typed structures |
+| `src/poyto/session_store.py` | 98 | 82 | persistent local session storage |
 | `src/poyto/config.py` | 86 | 71 | environment/settings/device configuration |
+| `src/poyto/mcp/config.py` | 76 | 64 | MCP environment/CLI settings |
 | `src/poyto/resources/markets.py` | 74 | 61 | markets, positions, activity, charts, prices |
-| `src/poyto/models.py` | 68 | 57 | typed structures |
-| `src/poyto/session_store.py` | 66 | 53 | persistent local session storage |
 | `src/poyto/_resource.py` | 65 | 53 | shared resource helpers/pagination helpers |
 | `src/poyto/resources/trades.py` | 60 | 55 | buy/sell request wrappers |
+| `src/poyto/__init__.py` | 49 | 46 | public exports and compatibility aliases |
 | `src/poyto/token_info.py` | 43 | 32 | secret-safe token/session inspection |
 | `src/poyto/resources/events.py` | 35 | 30 | event/timeline/ranking/chat wrappers |
-| `src/poyto/__init__.py` | 35 | 32 | public exports and compatibility aliases |
 | `src/poyto/exceptions.py` | 34 | 24 | normalized exceptions |
 | `src/poyto/client.py` | 31 | 25 | low-level client composition |
 | `src/poyto/cli.py` | 28 | 22 | CLI entrypoint/output |
+| `src/poyto/mcp/__main__.py` | 26 | 18 | MCP entrypoint |
 | `src/poyto/resources/discovery.py` | 25 | 16 | home/search/discovery wrappers |
+| `src/poyto/mcp_server.py` | 20 | 15 | legacy MCP compatibility shim |
 | `src/poyto/resources/__init__.py` | 15 | 14 | resource exports |
+| `src/poyto/mcp/__init__.py` | 3 | 2 | MCP package exports |
 
 These values are a snapshot, not a marketing metric. `python scripts/code_stats.py` is authoritative after the tree changes.
 
@@ -74,7 +80,7 @@ Critical boundary: refresh-token issuance is established, while the exact POYP r
 
 Implemented wrappers cover profile, balances, portfolio, portfolio history, balance history, balance transactions, expiring balances, missions, login streak, campaign results, provider rewards, loss-gacha status, notifications, unread count, read-all, push-token registration, blocked users, referral data and walking-challenge status.
 
-Primary implementation footprint: `resources/account.py` (106 lines), plus transport/session infrastructure.
+Primary implementation footprint: `resources/account.py` (144 lines), plus transport/session infrastructure.
 
 ## Ad rewards
 
@@ -114,6 +120,18 @@ Supported sell fields include `marketId`, `positionIndex`, `shares`, `orderSurfa
 
 Poyto does not claim complete knowledge of settlement, pricing formulas, slippage, fees, idempotency, anti-abuse, or every error response.
 
+## Settlement claims
+
+`claim_settlement(market_id, position_index)` is **Implemented / inferred**. The APK static
+inventory independently shows `POST /api/settlements/claim`, while the current JSON shape
+`{"marketId": ..., "positionIndex": ...}` comes from the contributed implementation and is
+covered by offline request-shape tests. This repository does not yet contain independent live
+request/response evidence proving that body or a successful response.
+
+The CLI command `settlement-claim` requires `--yes`, and the MCP tool `settlement_claim`
+requires `confirm=true`. Claim eligibility, payout semantics, response fields and the other APK
+settlement routes remain unverified.
+
 ## Comments and social
 
 Implemented/observed surfaces include moderation status, comment/reply creation, edit, delete, like, follow/unfollow, user profile, follow status, team follows, followers/following, user balance history and user portfolio history.
@@ -136,9 +154,9 @@ Implemented and observed: read referral code/stats, check code availability, upd
 
 ## CLI
 
-Common commands include authentication (`login`, `login-apple`, `logout`, `refresh`), account reads, markets, market detail, activity, charts, prices, transactions, buy/sell, comments, follow/unfollow, referral operations, notification read-all, ad-reward claim, user inspection and raw requests.
+Common commands include authentication (`login`, `login-apple`, `logout`, `refresh`), account reads, markets, market detail, activity, charts, prices, transactions, buy/sell, settlement claim, comments, follow/unfollow, referral operations, notification read-all, ad-reward claim, user inspection and raw requests.
 
-CLI implementation footprint: `cli_parser.py` 116 lines + `cli_dispatch.py` 174 + `cli.py` 28 = **318 physical lines**.
+CLI implementation footprint: `cli_parser.py` 135 lines + `cli_dispatch.py` 192 + `cli.py` 28 = **355 physical lines**.
 
 State-changing commands require explicit `--yes` where defined.
 

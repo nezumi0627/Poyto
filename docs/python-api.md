@@ -68,6 +68,14 @@ Token files may be plaintext, JSON, or dotenv-style. See [configuration](configu
 
 These request shapes are based on supplied HAR captures. They can affect account points/positions.
 
+## Settlement claim
+
+- `claim_settlement(market_id, position_index)`
+
+This wrapper is currently **implemented/inferred**. The route is present in the APK static
+inventory, but this repository does not yet have independent live evidence for the contributed
+JSON request shape or a successful response.
+
 ## Comments and social
 
 - `post_comment()` / `edit_comment()` / `delete_comment()` / `like_comment()`

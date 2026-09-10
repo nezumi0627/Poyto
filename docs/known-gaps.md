@@ -61,7 +61,12 @@ Unknown or unverified:
 - minimum and maximum order sizes in every market state
 - idempotency guarantees for `requestId`
 - duplicate-order handling
-- settlement implementation
+- settlement rules, eligibility and payout semantics
+- independent live request/response evidence for `POST /api/settlements/claim`; the route exists
+  in the APK static inventory and Poyto implements the contributed
+  `{"marketId": ..., "positionIndex": ...}` request shape, but this repository has not yet
+  independently established that live request body or a successful response
+- the other APK-static settlement routes such as `claim-split`, `ad-ticket` and `loss-bonus`
 - cancellation/undo support
 - limit orders
 - partial fills
