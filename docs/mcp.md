@@ -103,7 +103,7 @@ Smaller dedicated tools remain available when only one datum is needed. This kee
 
 Read tools include account/profile state, balances, portfolio, market discovery/detail/activity, POYP asset prices, transactions, login-bonus state, notification count and loss-gacha eligibility.
 
-Mutation tools are only registered outside read-only mode. `buy`, `sell`, loss-gacha ticket creation and loss-gacha claims require `confirm=true`. The MCP server rejects the mutation otherwise.
+Mutation tools are only registered outside read-only mode. `buy`, `sell`, `settlement_claim`, loss-gacha ticket creation and loss-gacha claims require `confirm=true`. The MCP server rejects the mutation otherwise. The settlement claim wrapper remains implemented/inferred until independent live request/response evidence is added.
 
 Tool annotations describe read-only/destructive/idempotent intent to capable MCP hosts. These annotations improve host behavior but are not treated as an authorization boundary; Poyto still enforces its own explicit confirmation requirement.
 

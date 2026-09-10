@@ -118,6 +118,13 @@ class AccountMixin(ResourceMixin):
             self.post("/api/me/ad-rewards/claim", params={"source": source}),
         )
 
+    def claim_settlement(self, market_id: str, position_index: int) -> Any:
+        """Request the payout claim for a settled market position."""
+        return self.post(
+            "/api/settlements/claim",
+            json={"marketId": market_id, "positionIndex": position_index},
+        )
+
     def blocked_users(self) -> Any:
         return self.get("/api/me/blocked-users")
 

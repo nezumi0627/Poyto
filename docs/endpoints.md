@@ -70,6 +70,11 @@ Supported sell fields: `marketId`, `positionIndex`, `shares`, `orderSurface`, `e
 
 See [trading API evidence](trading.md) for the consolidated client/CLI/MCP/test mapping and the separate APK-static-only status of `GET /api/me/trades` and `POST /api/trades/quote`.
 
+`POST /api/settlements/claim` is present in the APK static inventory and has an
+implemented/inferred client wrapper, but it is intentionally not added to this established-route
+list until independent live request evidence is available. See [capabilities](capabilities.md) and
+[known gaps](known-gaps.md).
+
 ## Comments
 
 - `GET /api/comments/moderation-status`
