@@ -71,10 +71,16 @@ These request shapes are based on supplied HAR captures. They can affect account
 ## Settlement claim
 
 - `claim_settlement(market_id, position_index)`
+- `claim_settlement_split(market_id, coin_ratio, ticket_id=None)`
 
-This wrapper is currently **implemented/inferred**. The route is present in the APK static
+`claim_settlement` is currently **implemented/inferred**. Its route is present in the APK static
 inventory, but this repository does not yet have independent live evidence for the contributed
 JSON request shape or a successful response.
+
+`claim_settlement_split` follows the APK-static-established `POST /api/settlements/claim-split`
+schema: `marketId`, `coinRatio`, and optional `ticketId`. `coin_ratio` must be 0 through 100 in
+steps of 10. The split route has static schema/callsite evidence, but no independent live-success
+capture is currently included.
 
 ## Comments and social
 

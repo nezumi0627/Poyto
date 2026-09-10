@@ -277,13 +277,26 @@ def build_server(
         @mcp.tool(annotations=mutation_annotations)
         def settlement_claim(
             market_id: str,
-            position_index: int,
+            position_index: int | None = None,
+            coin_ratio: int | None = None,
+            ticket_id: str | None = None,
             confirm: bool = False,
         ) -> Any:
-            """Claim an eligible settled market payout. Requires confirm=true."""
+            """Claim a settled payout, optionally selecting its point/coin split."""
             require_confirmation(confirm, "settlement_claim")
-            if position_index < 0:
+            if position_index is not None and position_index < 0:
                 raise ValueError("position_index must be zero or greater")
+            if ticket_id is not None and coin_ratio is None:
+                raise ValueError("ticket_id requires coin_ratio")
+            if coin_ratio is not None:
+                return _client_call(
+                    "claim_settlement_split",
+                    market_id,
+                    coin_ratio,
+                    ticket_id=ticket_id,
+                )
+            if position_index is None:
+                raise ValueError("position_index is required without coin_ratio")
             return _client_call("claim_settlement", market_id, position_index)
 
         @mcp.tool(annotations=mutation_annotations)

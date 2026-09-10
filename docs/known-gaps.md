@@ -66,7 +66,10 @@ Unknown or unverified:
   in the APK static inventory and Poyto implements the contributed
   `{"marketId": ..., "positionIndex": ...}` request shape, but this repository has not yet
   independently established that live request body or a successful response
-- the other APK-static settlement routes such as `claim-split`, `ad-ticket` and `loss-bonus`
+- independent live request/response evidence for `POST /api/settlements/claim-split`; APK static
+  callsite/schema analysis establishes `marketId`, `coinRatio`, optional `ticketId`, and a
+  0..100 ratio in steps of 10, but live success and server-side eligibility remain unverified
+- the other APK-static settlement routes such as `ad-ticket` and `loss-bonus`
 - cancellation/undo support
 - limit orders
 - partial fills
