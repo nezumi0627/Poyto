@@ -7,6 +7,7 @@ src/poyto/
 ├── config.py          # environment/config resolution
 ├── token_loader.py    # literal/plaintext/JSON/dotenv token parsing
 ├── session_store.py   # persistent session storage
+├── device_store.py    # persistent app-style device identity
 ├── models.py          # AuthSession / DeviceInfo
 ├── exceptions.py      # public error hierarchy
 ├── _http.py           # HTTP transport, headers, auth exchange, raw requests
@@ -30,7 +31,7 @@ src/poyto/
 1. **Observed API shapes stay in resource modules.** A resource method should be easy to compare against a HAR entry.
 2. **Transport concerns stay out of resources.** Authorization, headers, HTTP errors, base URLs, and Supabase exchange live in `_http.py`.
 3. **Credential sources do not bleed into each other.** Explicit credentials are never paired with unrelated environment refresh tokens.
-4. **The high-level client owns lifecycle policy.** Saved sessions, refresh-before-expiry, one-time 401 retry, and logout cleanup live in `auto.py`.
+4. **Authentication and device identity have separate lifecycles.** Saved sessions, refresh-before-expiry, one-time 401 retry, and logout cleanup live in `auto.py`; the stable device ID lives independently in `device_store.py`.
 5. **CLI is an adapter, not business logic.** It parses arguments and delegates to the same public client methods used by Python callers.
 6. **Undocumented operations are not invented.** Dedicated methods are added only for request shapes observed in supplied captures; `request()` remains the escape hatch.
 

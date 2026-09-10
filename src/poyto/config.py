@@ -51,6 +51,7 @@ class Settings:
     refresh_token: str | None = None
     token_file: Path | None = None
     session_file: Path | None = None
+    device_file: Path | None = None
     auto_load_session: bool = True
     auto_refresh: bool = True
     save_session: bool = True
@@ -62,6 +63,7 @@ class Settings:
     def from_env(cls) -> Settings:
         token_file = env_value("POYTO_TOKEN_FILE", "POYP_TOKEN_FILE")
         session_file = env_value("POYTO_SESSION_FILE")
+        device_file = env_value("POYTO_DEVICE_FILE", "POYP_DEVICE_FILE")
         return cls(
             api_base=env_value("POYTO_API_BASE", "POYP_API_BASE") or _DEFAULT_API_BASE,
             auth_base=env_value("POYTO_AUTH_BASE", "POYP_AUTH_BASE") or _DEFAULT_AUTH_BASE,
@@ -71,6 +73,7 @@ class Settings:
             refresh_token=env_value("POYTO_REFRESH_TOKEN", "POYP_REFRESH_TOKEN"),
             token_file=Path(token_file).expanduser() if token_file else None,
             session_file=Path(session_file).expanduser() if session_file else None,
+            device_file=Path(device_file).expanduser() if device_file else None,
             auto_load_session=env_bool("POYTO_AUTO_LOAD_SESSION", default=True),
             auto_refresh=env_bool("POYTO_AUTO_REFRESH", default=True),
             save_session=env_bool("POYTO_SAVE_SESSION", default=True),

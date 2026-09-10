@@ -19,18 +19,18 @@ Measured by CI with `python scripts/code_stats.py`:
 
 | Area | Files | Physical lines | Non-blank lines |
 | --- | ---: | ---: | ---: |
-| Core/MCP source outside `resources/` | 20 | 2,029 | 1,730 |
+| Core/MCP source outside `resources/` | 21 | 2,103 | 1,790 |
 | Resource wrappers `src/poyto/resources/*.py` | 7 | 498 | 410 |
-| **Source total** | **27** | **2,527** | **2,140** |
-| Tests | 9 | 1,220 | 977 |
+| **Source total** | **28** | **2,601** | **2,200** |
+| Tests | 10 | 1,304 | 1,044 |
 
 Per-source-file snapshot:
 
 | File | Lines | Non-blank | Main responsibility |
 | --- | ---: | ---: | --- |
-| `src/poyto/_http.py` | 195 | 171 | HTTP transport, headers, auth exchange/refresh/logout |
+| `src/poyto/_http.py` | 201 | 177 | HTTP transport, headers, auth exchange/refresh/logout |
 | `src/poyto/mcp/server.py` | 342 | 302 | FastMCP server and POYP tools |
-| `src/poyto/auto.py` | 219 | 197 | credential loading, persistence, auto-refresh, 401 retry |
+| `src/poyto/auto.py` | 221 | 199 | credential loading, persistence, auto-refresh, 401 retry |
 | `src/poyto/cli_dispatch.py` | 202 | 189 | CLI command execution |
 | `src/poyto/token_loader.py` | 163 | 136 | token/text/file parsing |
 | `src/poyto/resources/account.py` | 160 | 127 | account, balances, notifications, referral and claims |
@@ -39,10 +39,11 @@ Per-source-file snapshot:
 | `src/poyto/har_loader.py` | 111 | 92 | secret-aware HAR/HAR.zip session import |
 | `src/poyto/models.py` | 101 | 80 | typed structures |
 | `src/poyto/session_store.py` | 98 | 82 | persistent local session storage |
-| `src/poyto/config.py` | 86 | 71 | environment/settings/device configuration |
+| `src/poyto/config.py` | 89 | 74 | environment/settings/device configuration |
 | `src/poyto/mcp/config.py` | 76 | 64 | MCP environment/CLI settings |
 | `src/poyto/resources/markets.py` | 74 | 61 | markets, positions, activity, charts, prices |
 | `src/poyto/_resource.py` | 65 | 53 | shared resource helpers/pagination helpers |
+| `src/poyto/device_store.py` | 63 | 49 | persistent app-style device identity |
 | `src/poyto/resources/trades.py` | 60 | 55 | buy/sell request wrappers |
 | `src/poyto/__init__.py` | 49 | 46 | public exports and compatibility aliases |
 | `src/poyto/token_info.py` | 43 | 32 | secret-safe token/session inspection |
@@ -68,13 +69,14 @@ These values are a snapshot, not a marketing metric. `python scripts/code_stats.
 | Apple id-token login | `login_with_apple()`, `login-apple` | **Observed success** |
 | Receive/store access + refresh pair | `AuthSession`, `SessionStore` | **Observed success** for issuance |
 | Refresh shortly before expiry | automatic lifecycle | **Implemented / inferred** |
-| One refresh + retry after authenticated 401 | automatic lifecycle | Local policy; exchange inferred |
-| Persist rotated refresh pair | automatic lifecycle | **Implemented / inferred** |
+| One refresh + retry after authenticated 401 | automatic lifecycle | Local policy; refresh exchange established |
+| Persist newest refresh pair | automatic lifecycle | Local policy; refresh exchange established |
+| Generate once and reuse Device ID | `DeviceIdStore`, `X-POYP-Device-Id` | APK static analysis; local lifecycle implemented |
 | Remote global logout | `logout(local_only=False)` | **Observed** |
 | Local-only logout | `logout(local_only=True)` | Local feature |
 | Inspect token/session shape without leaking secrets | `session_info()`, `token_kind()` | Local feature |
 
-Critical boundary: refresh-token issuance is established, while the exact POYP refresh exchange is not. The refresh request follows standard Supabase/GoTrue behavior and remains inferred.
+Critical boundary: refresh-token issuance and the refresh endpoint/request shape are established. Exact rotation/reuse, simultaneous-refresh, and broader session-invalidation policy remain unknown.
 
 ## Account, balances and notifications
 

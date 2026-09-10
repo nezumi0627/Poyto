@@ -25,6 +25,7 @@ class PoytoClient(BasePoytoClient):
         access_token: str | None = None,
         refresh_token: str | None = None,
         session_file: str | Path | None = None,
+        device_file: str | Path | None = None,
         auto_load_session: bool | None = None,
         auto_refresh: bool | None = None,
         save_session: bool | None = None,
@@ -71,6 +72,7 @@ class PoytoClient(BasePoytoClient):
         super().__init__(
             access_token=effective_access,
             refresh_token=effective_refresh,
+            device_file=device_file or settings.device_file,
             **kwargs,
         )
         self._copy_session_metadata(metadata_source)

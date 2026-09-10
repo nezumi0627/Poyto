@@ -14,6 +14,7 @@ dist/
 build/
 *.egg-info/
 .analysis/
+.tmp-auth-scan/
 .poyto/
 *.har
 *.har.zip

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 import httpx
 
 from .config import Settings
+from .device_store import DeviceIdStore
 from .exceptions import APIError, AuthenticationError
 from .models import AuthSession, DeviceInfo
 
@@ -22,6 +24,7 @@ class HTTPClient:
         refresh_token: str | None = None,
         supabase_key: str | None = None,
         device: DeviceInfo | None = None,
+        device_file: str | Path | None = None,
         timeout: float | None = None,
         transport: httpx.BaseTransport | None = None,
         api_base: str | None = None,
@@ -32,6 +35,9 @@ class HTTPClient:
         self.auth_base = (auth_base or settings.auth_base or self.AUTH_BASE).rstrip("/")
         self.supabase_key = supabase_key or settings.supabase_key or self.DEFAULT_SUPABASE_KEY
         self.device = device or DeviceInfo.from_env()
+        self.device_store = DeviceIdStore(device_file or settings.device_file)
+        if not self.device.device_id:
+            self.device.device_id = self.device_store.get_or_create()
         self.session = AuthSession(access_token, refresh_token) if access_token else None
         self.http = httpx.Client(
             timeout=settings.timeout if timeout is None else timeout,
