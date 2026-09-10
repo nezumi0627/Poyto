@@ -45,7 +45,9 @@ def test_scan_decompiled_calls_recovers_method_and_normalized_route() -> None:
             "body_keys": [],
             "statuses": [],
             "source": ["decompiled.js"],
-            "confidence": "static",
+            "functions": [],
+            "locations": ["decompiled.js:6"],
+            "confidence": "static-call",
             "occurrences": 1,
         }
     ]
@@ -159,6 +161,8 @@ def test_parse_known_routes_requires_exact_http_method(tmp_path: Path) -> None:
     known_doc = tmp_path / "endpoints.md"
     known_doc.write_text(
         "`GET /api/users/{userId}/follow`\n"
+        "This route is APK-static-only: `POST /api/trades/quote`.\n"
+        "- `GET /api/users/{userId}/follow`\n"
         "`/api/methodless-note`\n",
         encoding="utf-8",
     )
@@ -192,7 +196,7 @@ def test_records_suppresses_methodless_duplicate_for_same_route() -> None:
             host="api.poyp.app",
             path="/api/trades/quote",
             sources={"bundle"},
-            evidence={"static"},
+            evidence={"static-string"},
             occurrences=1,
         ),
         ("api.poyp.app", "POST", "/api/trades/quote"): Endpoint(
@@ -200,7 +204,7 @@ def test_records_suppresses_methodless_duplicate_for_same_route() -> None:
             path="/api/trades/quote",
             method="POST",
             sources={"decompiled.js"},
-            evidence={"static"},
+            evidence={"static-call"},
             occurrences=1,
         ),
     }

@@ -22,7 +22,8 @@ URL_RE = re.compile(rb"https?://[^\x00-\x20\x7f\"'<>]{4,}")
 API_PATH_RE = re.compile(rb"/(?:api|auth/v1)/[a-z0-9][A-Za-z0-9_./?&={}:$%+\-]*")
 PRINTABLE_RE = re.compile(rb"[\x20-\x7e]{6,}")
 DOC_ROUTE_RE = re.compile(
-    r"`(?:(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)\s+)?(/(?:api|auth/v1)/[^`?\s]+)(?:\?[^`]*)?`"
+    r"^\s*-\s+`(?:(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)\s+)?(/(?:api|auth/v1)/[^`?\s]+)(?:\?[^`]*)?`",
+    re.MULTILINE,
 )
 DECOMPILED_METHOD_RE = re.compile(
     r"^\s*(r\d+) = '(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)';\s*$"
@@ -91,6 +92,8 @@ class Endpoint:
     body_keys: set[str] = field(default_factory=set)
     statuses: set[int] = field(default_factory=set)
     sources: set[str] = field(default_factory=set)
+    functions: set[str] = field(default_factory=set)
+    locations: set[str] = field(default_factory=set)
     evidence: set[str] = field(default_factory=set)
     occurrences: int = 0
 
@@ -98,7 +101,12 @@ class Endpoint:
         return (self.host, self.method or "", self.path)
 
     def as_dict(self) -> dict[str, Any]:
-        confidence = "observed" if "observed" in self.evidence else "static"
+        if "observed" in self.evidence:
+            confidence = "observed"
+        elif "static-call" in self.evidence:
+            confidence = "static-call"
+        else:
+            confidence = "static-string"
         return {
             "method": self.method,
             "host": self.host,
@@ -107,6 +115,8 @@ class Endpoint:
             "body_keys": sorted(self.body_keys),
             "statuses": sorted(self.statuses),
             "source": sorted(self.sources),
+            "functions": sorted(self.functions),
+            "locations": sorted(self.locations),
             "confidence": confidence,
             "occurrences": self.occurrences,
         }
@@ -157,6 +167,8 @@ def merge_endpoint(target: dict[tuple[str, str, str], Endpoint], endpoint: Endpo
     existing.body_keys.update(endpoint.body_keys)
     existing.statuses.update(endpoint.statuses)
     existing.sources.update(endpoint.sources)
+    existing.functions.update(endpoint.functions)
+    existing.locations.update(endpoint.locations)
     existing.evidence.update(endpoint.evidence)
     existing.occurrences += endpoint.occurrences
 
@@ -255,7 +267,7 @@ def scan_printable_blob(
                     path=path,
                     query_keys=set(query_keys),
                     sources={source},
-                    evidence={"static"},
+                    evidence={"static-string"},
                     occurrences=1,
                 ),
             )
@@ -288,7 +300,7 @@ def scan_printable_blob(
                     path=path,
                     query_keys=set(query_keys),
                     sources={source},
-                    evidence={"static"},
+                    evidence={"static-string"},
                     occurrences=1,
                 ),
             )
@@ -462,7 +474,7 @@ def scan_decompiled_dynamic_calls(
             return argument[1:-1], set()
         return None, set()
 
-    for line in text.splitlines():
+    for line_number, line in enumerate(text.splitlines(), start=1):
         function_match = DECOMPILED_FUNCTION_RE.search(line)
         if function_match:
             name = function_match.group(1)
@@ -589,7 +601,9 @@ def scan_decompiled_dynamic_calls(
                             query_keys=query_keys,
                             body_keys=set(option_body_keys.get(options_register, set())),
                             sources={source},
-                            evidence={"static"},
+                            functions={current_function} if current_function else set(),
+                            locations={f"{source}:{line_number}"},
+                            evidence={"static-call"},
                             occurrences=1,
                         ),
                     )
@@ -618,7 +632,9 @@ def scan_decompiled_dynamic_calls(
                             method="GET",
                             query_keys=query_keys,
                             sources={source},
-                            evidence={"static"},
+                            functions={current_function} if current_function else set(),
+                            locations={f"{source}:{line_number}"},
+                            evidence={"static-call"},
                             occurrences=1,
                         ),
                     )
@@ -815,6 +831,8 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
                 "body_keys",
                 "statuses",
                 "source",
+                "functions",
+                "locations",
                 "confidence",
                 "occurrences",
             ],
@@ -822,7 +840,7 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer.writeheader()
         for row in rows:
             flat = dict(row)
-            for key in ("query_keys", "body_keys", "statuses", "source"):
+            for key in ("query_keys", "body_keys", "statuses", "source", "functions", "locations"):
                 flat[key] = ";".join(str(value) for value in row[key])
             writer.writerow(flat)
 
@@ -836,26 +854,28 @@ def write_markdown(
     static_only = [
         row
         for row in rows
-        if row["confidence"] == "static" and (row["method"], row["path"]) not in known_routes
+        if row["confidence"] != "observed" and (row["method"], row["path"]) not in known_routes
     ]
     lines = [
         "# Endpoint inventory",
         "",
-        "Generated from local evidence. `observed` means HAR traffic; `static` means an APK/XAPK/string match and does not establish method, request shape, or server behavior.",
+        "Generated from local evidence. `observed` means HAR traffic; `static-call` means method/path were recovered from a decompiled Hermes request-helper call; `static-string` means only a raw APK/XAPK/string match. Static evidence does not establish runtime reachability or server behavior.",
         "",
-        "| Evidence | Method | Host | Path | Query keys | Body keys | Documented observed | Statuses |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Evidence | Method | Host | Path | Query keys | Body keys | APK function | Decompiled call | Documented observed | Statuses |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in rows:
         documented = (row["method"], row["path"]) in known_routes
         lines.append(
-            "| {confidence} | {method} | `{host}` | `{path}` | {query} | {body} | {documented} | {statuses} |".format(
+            "| {confidence} | {method} | `{host}` | `{path}` | {query} | {body} | {functions} | {locations} | {documented} | {statuses} |".format(
                 confidence=row["confidence"],
                 method=row["method"] or "?",
                 host=row["host"],
                 path=row["path"],
                 query=", ".join(f"`{item}`" for item in row["query_keys"]) or "-",
                 body=", ".join(f"`{item}`" for item in row["body_keys"]) or "-",
+                functions=", ".join(f"`{item}`" for item in row["functions"]) or "-",
+                locations=", ".join(f"`{item}`" for item in row["locations"]) or "-",
                 documented="yes" if documented else "no",
                 statuses=", ".join(str(item) for item in row["statuses"]) or "-",
             )
@@ -911,14 +931,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         write_markdown(args.markdown_path, rows, known_routes)
 
     observed = sum(1 for row in rows if row["confidence"] == "observed")
-    static = len(rows) - observed
+    static_call = sum(1 for row in rows if row["confidence"] == "static-call")
+    static_string = sum(1 for row in rows if row["confidence"] == "static-string")
     static_only = sum(
         1
         for row in rows
-        if row["confidence"] == "static" and (row["method"], row["path"]) not in known_routes
+        if row["confidence"] != "observed" and (row["method"], row["path"]) not in known_routes
     )
     print(
-        f"endpoints={len(rows)} observed={observed} static={static} "
+        f"endpoints={len(rows)} observed={observed} static_call={static_call} static_string={static_string} "
         f"static_only_vs_docs={static_only}"
     )
     return 0
