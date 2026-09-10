@@ -5,7 +5,8 @@
 The evidence levels are intentionally separate:
 
 - **observed** — the method/path/query/body-key/status combination came from HAR request/response traffic;
-- **static** — a URL or `/api/...`/`/auth/v1/...` string was found in an APK/XAPK or extracted asset. Static evidence alone does not prove the HTTP method, request body, eligibility rules, or that the route is still reachable;
+- **static-call** — method/path were recovered from a decompiled Hermes request-helper call. This is stronger than a raw string hit because the client function and call-site are known, but it still does not prove current server reachability;
+- **static-string** — only a URL or `/api/...`/`/auth/v1/...` string was found in an APK/XAPK or extracted asset. Treat this as weak/noisy evidence until a POYP request call-site is found;
 - **inferred** — remains a documentation category for behavior supported by external protocol knowledge rather than direct POYP evidence. The inventory tool does not automatically promote static strings to inferred or observed.
 
 ## Usage
@@ -30,7 +31,7 @@ python tools/endpoint_inventory.py POYP.apk .analysis/decompiled.js `
 
 For hermes-dec output, the scanner symbolically follows the common POYP request-building shapes instead of relying only on adjacent string matches. It reconstructs concat-built routes, labels common dynamic path segments, recovers query keys from URLSearchParams-like `set`/`toString` flows, and recovers top-level JSON body keys when the object/stringify flow is statically visible. For high-confidence POYP `_fetch*`/GET helpers, a route-only helper call is treated as the shared request helper's default GET behavior. The function-name and first-route-segment allowlists prevent unrelated bundled SDK routes from being attributed to `api.poyp.app`.
 
-These results remain **static** evidence. A reconstructed method/path/request shape proves that the shipped client contains and calls that route shape; it does not prove that the server still accepts the route, that the current account is eligible, or that all runtime-only fields were recovered.
+These results remain **static-call** evidence. A reconstructed method/path/request shape proves that the shipped client contains and calls that route shape; it does not prove that the server still accepts the route, that the current account is eligible, or that all runtime-only fields were recovered. Raw string-only hits remain **static-string** and should not be promoted just because they look like an API path.
 
 HAR output contains only route metadata: host, method, normalized path, query-key names, top-level request-body key names, response statuses, and source filename. Query/body values, headers, cookies, tokens, user payloads, and response bodies are not emitted.
 
@@ -42,7 +43,7 @@ By default only `poyp.app` hosts are included. Use `--all-hosts` only when you i
 
 1. Generate an inventory from current HAR evidence.
 2. Add the current APK/XAPK to the same run.
-3. Review static-only paths and locate their call sites in JADX or the JavaScript/Hermes bundle.
+3. Review static-only paths and require a concrete request-helper call site in JADX or the JavaScript/Hermes bundle before treating them as client API candidates.
 4. Reproduce promising read-only requests with a user-owned session when safe.
 5. Only after direct verification, move the route into `docs/endpoints.md` and add a client wrapper/test if useful.
 
